@@ -1,0 +1,198 @@
+# ============================================================
+# Enterprise Agentic Streaming Lakehouse - Docker Compose
+# Engineer 1: Foundation Services
+# ============================================================
+# Services: PostgreSQL, Redpanda, Redpanda Console, MinIO
+# ============================================================
+
+networks:
+  lakehouse-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  minio-data:
+  redpanda-data:
+
+services:
+
+  # ──────────────────────────────────────────────
+  # 1. PostgreSQL 16 — Operational Database
+  # ──────────────────────────────────────────────
+  # Stores e-commerce data. WAL logical decoding
+  # enabled so Debezium can capture row changes.
+  # ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    hostname: postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # ── WAL / Logical Replication Settings ──
+    # wal_level=logical        → enables logical decoding for CDC
+    # max_replication_slots=4  → allows Debezium to create a replication slot
+    # max_wal_senders=4        → concurrent WAL streaming connections
+    # max_slot_wal_keep_size=1GB → CRITICAL: caps WAL retention to prevent
+    #                              disk explosion if Debezium goes down
+    command:
+      - "postgres"
+      - "-c" 
+      - "wal_level=logical"
+      - "-c"
+      - "max_replication_slots=4"
+      - "-c"
+      - "max_wal_senders=4"
+      - "-c"
+      - "max_slot_wal_keep_size=1GB"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - lakehouse-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ──────────────────────────────────────────────
+  # 2. Redpanda — Event Broker (Kafka-compatible)
+  # ──────────────────────────────────────────────
+  # Written in C++, no JVM, no ZooKeeper.
+  # Receives CDC events from Debezium and buffers
+  # them for Flink to consume downstream.
+  # ──────────────────────────────────────────────
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: redpanda
+    hostname: redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --default-log-level=warn
+    ports:
+      - "19092:19092"   # Kafka API (external access from host)
+      - "18082:18082"   # Pandaproxy
+      - "18081:18081"   # Schema Registry
+      - "9644:9644"     # Admin API
+    volumes:
+      - redpanda-data:/var/redpanda/data
+    networks:
+      - lakehouse-net
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ──────────────────────────────────────────────
+  # 3. Redpanda Console — Web UI
+  # ──────────────────────────────────────────────
+  # Browse topics, inspect CDC JSON messages,
+  # monitor consumer groups. Runs at localhost:8080
+  # ──────────────────────────────────────────────
+  redpanda-console:
+    image: redpandadata/console:latest
+    container_name: redpanda-console
+    hostname: redpanda-console
+    restart: unless-stopped
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - lakehouse-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ──────────────────────────────────────────────
+  # 4. MinIO — S3-Compatible Object Storage
+  # ──────────────────────────────────────────────
+  # Stores Iceberg Parquet data files.
+  # Engineer 3 will configure buckets later.
+  # Console UI at localhost:9001
+  # ──────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    hostname: minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Console UI
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    networks:
+      - lakehouse-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ──────────────────────────────────────────────
+  # 5. Debezium Server — CDC Capture
+  # ──────────────────────────────────────────────
+  # Standalone Quarkus app. Tails the Postgres WAL
+  # and writes JSON events to Redpanda topics.
+  # ──────────────────────────────────────────────
+  debezium:
+    image: quay.io/debezium/server:2.7
+    container_name: debezium
+    hostname: debezium
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    volumes:
+      - ./debezium/application.properties:/debezium/conf/application.properties
+    environment:
+      JAVA_OPTS: "-Xmx256m"
+    networks:
+      - lakehouse-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
