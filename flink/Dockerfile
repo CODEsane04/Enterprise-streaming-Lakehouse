@@ -20,11 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV KAFKA_JAR_URL=https://repo1.maven.org/maven2/org/apache/flink/flink-sql-connector-kafka/3.4.0-1.20/flink-sql-connector-kafka-3.4.0-1.20.jar
 ENV ICEBERG_JAR_URL=https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-flink-runtime-1.20/1.7.1/iceberg-flink-runtime-1.20-1.7.1.jar
 ENV HADOOP_JAR_URL=https://repo1.maven.org/maven2/org/apache/flink/flink-shaded-hadoop-2-uber/2.8.3-10.0/flink-shaded-hadoop-2-uber-2.8.3-10.0.jar
+ENV HADOOP_AWS_JAR_URL=https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.8.3/hadoop-aws-2.8.3.jar
 ENV AWS_SDK_JAR_URL=https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.648/aws-java-sdk-bundle-1.12.648.jar
+ENV GUAVA_JAR_URL=https://repo1.maven.org/maven2/com/google/guava/guava/30.0-jre/guava-30.0-jre.jar
 
 RUN wget -nv -P /opt/flink/lib/ "${KAFKA_JAR_URL}" && \
     wget -nv -P /opt/flink/lib/ "${ICEBERG_JAR_URL}" && \
     wget -nv -P /opt/flink/lib/ "${HADOOP_JAR_URL}" && \
+    wget -nv -P /opt/flink/lib/ "${HADOOP_AWS_JAR_URL}" && \
+    wget -nv -P /opt/flink/lib/ "${GUAVA_JAR_URL}" && \
     wget -nv -P /opt/flink/lib/ "${AWS_SDK_JAR_URL}" && \
     chown -R flink:flink /opt/flink/lib/
 

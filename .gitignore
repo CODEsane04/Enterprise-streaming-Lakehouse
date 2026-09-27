@@ -55,3 +55,4 @@ venv.bak/
 *.parquet
 *.avro
 *.log
+*.csv

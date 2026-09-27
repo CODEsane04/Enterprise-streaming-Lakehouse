@@ -204,7 +204,7 @@ services:
   # Flink attempts to write checkpoints or metadata.
   # ──────────────────────────────────────────────
   minio-init:
-    image: minio/mc:latest
+    image: minio/minio:latest
     container_name: minio-init
     depends_on:
       minio:
@@ -245,7 +245,9 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./flink/sql:/opt/flink/sql
+      - ./core-site.xml:/opt/flink/conf/core-site.xml
     environment:
+      - HADOOP_CONF_DIR=/opt/flink/conf
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
       - |
         FLINK_PROPERTIES=
@@ -273,6 +275,7 @@ services:
         fs.s3a.connection.ssl.enabled: false
         fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+        fs.allowed-fallback-filesystems: s3a
     networks:
       - lakehouse-net
     deploy:
@@ -297,7 +300,9 @@ services:
         condition: service_started
     volumes:
       - ./flink/sql:/opt/flink/sql
+      - ./core-site.xml:/opt/flink/conf/core-site.xml
     environment:
+      - HADOOP_CONF_DIR=/opt/flink/conf
       - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
       - |
         FLINK_PROPERTIES=
@@ -316,6 +321,7 @@ services:
         fs.s3a.connection.ssl.enabled: false
         fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+        fs.allowed-fallback-filesystems: s3a
     networks:
       - lakehouse-net
     deploy:
@@ -336,7 +342,7 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-    command: bin/sql-client.sh embedded -j flink-jobmanager:8081
+    command: sleep infinity
     depends_on:
       flink-jobmanager:
         condition: service_started
@@ -344,10 +350,13 @@ services:
         condition: service_started
     volumes:
       - ./flink/sql:/opt/flink/sql
+      - ./core-site.xml:/opt/flink/conf/core-site.xml
     environment:
+      - HADOOP_CONF_DIR=/opt/flink/conf
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
+        rest.address: flink-jobmanager
         s3.endpoint: http://minio:9000
         s3.path.style.access: true
         s3.access-key: ${MINIO_ROOT_USER}
@@ -359,6 +368,7 @@ services:
         fs.s3a.connection.ssl.enabled: false
         fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+        fs.allowed-fallback-filesystems: s3a
     networks:
       - lakehouse-net
     deploy:
