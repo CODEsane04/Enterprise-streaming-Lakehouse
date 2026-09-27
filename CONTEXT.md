@@ -1,7 +1,8 @@
-# PROJECT CONTEXT — Engineer 1 Complete
+# PROJECT CONTEXT — Engineer 1 & Engineer 2 Complete
 # Enterprise Agentic Streaming Lakehouse
 # Paste this into a new chat to restore full context.
-# Last updated: 2026-08-26
+# Last updated: 2026-09-27
+# Branch: feat/engineer-2-flink-iceberg
 # ================================================================
 
 ## PROJECT OVERVIEW
@@ -11,7 +12,7 @@ This is a 4-engineer undergraduate capstone project called the
 pipeline that:
 1. Captures live database changes from PostgreSQL via CDC
 2. Streams them through Redpanda (Kafka-compatible broker)
-3. Processes them with Apache Flink (stream processor)
+3. Processes them with Apache Flink (stream processor, data quality, DLQ)
 4. Stores them in Apache Iceberg tables on MinIO (object storage)
 5. Queries them with Trino (SQL engine)
 6. Exposes them to an LLM via FastMCP (AI agent layer)
@@ -21,43 +22,47 @@ The dataset is the **Olist Brazilian E-Commerce** dataset (~100k orders,
 
 **Engineer split:**
 - Engineer 1 (DONE): PostgreSQL + Debezium CDC + Redpanda + Data Mutator
-- Engineer 2 (NEXT): Apache Flink + Data Quality + DLQ + Iceberg sink
-- Engineer 3: MinIO + Apache Polaris (catalog) + Trino
+- Engineer 2 (DONE): Apache Flink 1.20 + Data Quality (DLQ) + Iceberg Sink on MinIO + Checkpointing
+- Engineer 3 (NEXT): MinIO + Apache Polaris (REST Catalog) + Trino Query Engine
 - Engineer 4: FastMCP server + sqlglot AST security + LLM benchmarking
 
 ---
 
 ## MACHINE / ENVIRONMENT
 
-- OS: Windows 11
-- Shell: PowerShell (`py` command for Python, not `python`)
-- Python: 3.12 at `C:\Users\Lenovo\AppData\Local\Programs\Python\Python312\`
-- Docker Desktop: v28.5.1 installed and RUNNING
-- Docker Compose: v2.40.0
-- Project root: `D:\DE project\`
-- Python packages installed: pandas, sqlalchemy, psycopg2-binary, kagglehub, pymupdf
+- Primary Development & Validation Host: Windows 11 / PowerShell (`D:\DE project\`)
+- Secondary Development Host: macOS (Apple Silicon arm64)
+- Shell: PowerShell (`py` command on Windows, `python3` on Mac)
+- Python: 3.12+ (pandas, sqlalchemy, psycopg2-binary, kagglehub)
+- Docker Desktop: v28+ (WSL 2 on Windows, VirtioFS on Mac; requires ≥6 GB RAM allocated)
+- Docker Compose: v2.20+
 
 ---
 
-## CURRENT STATE — ALL CONTAINERS RUNNING
+## CURRENT STATE — CONTAINER TOPOLOGY (9 SERVICES)
 
-Run `docker compose ps` from `D:\DE project\` to verify.
+Run `docker compose ps` to verify all services.
 
-| Container | Image | Ports | Status |
+| Container | Image | Ports | Role / Status |
 |---|---|---|---|
-| postgres | postgres:16 | 5433→5432 | healthy |
-| redpanda | redpandadata/redpanda:latest | 19092, 18081, 18082, 9644 | healthy |
-| redpanda-console | redpandadata/console:latest | 8088→8080 | running |
-| minio | minio/minio:latest | 9000, 9001 | healthy |
-| debezium | quay.io/debezium/server:2.7 | (no ports, internal only) | running |
+| postgres | postgres:16 | 5433→5432 | Primary DB (logical decoding, dbz_publication) |
+| redpanda | redpandadata/redpanda:latest | 19092, 18081, 18082, 9644 | Event broker (7 CDC topics + 1 DLQ topic) |
+| redpanda-console | redpandadata/console:latest | 8088→8080 | Web UI for topics, consumers, messages |
+| minio | minio/minio:latest | 9000, 9001 | S3 storage (Iceberg warehouse + checkpoints) |
+| minio-init | minio/mc:latest | (none, runs once) | Auto-provisions 'lakehouse' bucket on boot |
+| debezium | quay.io/debezium/server:2.7 | (none, internal) | Tails Postgres WAL -> Redpanda topics |
+| flink-jobmanager | custom-flink:1.20 | 8081→8081 | Flink coordinator & Web Dashboard |
+| flink-taskmanager | custom-flink:1.20 | (none, internal) | Flink streaming worker (2 slots) |
+| flink-sql-client | custom-flink:1.20 | (none, interactive) | Interactive CLI for SQL job submission |
 
 **NOTE:** Port 5432 was already in use on the host machine, so PostgreSQL
 is mapped to host port **5433**. Port 8080 was also in use, so Redpanda
-Console is on **8088**.
+Console is on **8088**. Flink Dashboard is on **8081**.
 
 **Web UIs:**
 - Redpanda Console: http://localhost:8088
 - MinIO Console: http://localhost:9001 (login: minioadmin / minioadmin123)
+- Flink Dashboard: http://localhost:8081
 
 ---
 
@@ -323,17 +328,28 @@ debezium.format.value.schemas.enable=false
 ## FILE STRUCTURE
 
 ```
-D:\DE project\
-├── docker-compose.yml              ← All 5 Docker services
+D:\DE project\ (or git repository root)
 ├── .env                            ← Passwords/config (DO NOT commit to git)
-├── .gitignore                      ← Excludes .env and data/
+├── .env.example                    ← Reference template for required variables
+├── .gitattributes                  ← Enforces Unix LF line endings across OS
+├── .gitignore                      ← Excludes .env, large datasets, and artifacts
+├── docker-compose.yml              ← All 9 Docker services (Infra + Flink Lakehouse)
 ├── postgres/
 │   └── init.sql                    ← 9-table schema + dbz_publication
 ├── debezium/
 │   └── application.properties      ← Debezium CDC config
+├── flink/
+│   ├── Dockerfile                  ← Custom Flink 1.20 image with pinned JARs
+│   ├── README.md                   ← Flink architecture & operational guide
+│   └── sql/
+│       ├── 01-catalog.sql          ← Iceberg Hadoop catalog & checkpointing config
+│       ├── 02-sources.sql          ← Debezium CDC Kafka source tables (orders, items, pmts)
+│       ├── 03-sinks.sql            ← Redpanda DLQ sink + Iceberg Lakehouse sinks
+│       ├── 04-jobs.sql             ← Continuous ingestion jobs (Statement Set)
+│       └── run_all.sql             ← One-shot pipeline submission script
 ├── scripts/
-│   ├── download_olist.py           ← Downloads CSVs from Kaggle
-│   └── data_mutator.py             ← Time-dilated simulation engine
+│   ├── download_olist.py           ← Downloads CSVs from Kaggle (cross-platform)
+│   └── data_mutator.py             ← Time-dilated simulation engine (cross-platform)
 └── data/
     └── olist/                      ← 9 CSV files (NOT in git, 120MB)
         ├── olist_orders_dataset.csv
@@ -365,38 +381,71 @@ REDPANDA_CONSOLE_PORT=8080
 
 ---
 
+## FLINK & LAKEHOUSE ARCHITECTURE (ENGINEER 2)
+
+### Pinned Compatibility Matrix
+- Flink Base: `flink:1.20-java17`
+- Kafka Connector: `flink-sql-connector-kafka:3.4.0-1.20`
+- Iceberg Runtime: `iceberg-flink-runtime-1.20:1.7.1`
+- Hadoop S3A Filesystem: `flink-shaded-hadoop-2-uber:2.8.3-10.0`
+- AWS SDK Bundle: `aws-java-sdk-bundle:1.12.648`
+
+### Data Quality & Dead Letter Queue (DLQ) Strategy
+- **Source Topic**: `ecommerce.public.order_items`
+- **Anomaly Detection**: `price < 0 OR price IS NULL OR freight_value < 0`
+- **DLQ Sink**: `ecommerce.dlq.order_items` (Kafka format: `debezium-json`) enriched with `error_reason`:
+  - `NEGATIVE_PRICE` (captures mutator anomaly injected every 10th order)
+  - `NULL_PRICE` (captures missing prices)
+  - `NEGATIVE_FREIGHT` (captures freight anomalies)
+- **Clean Lakehouse Sink**: `iceberg_catalog.ecommerce.order_items`
+  - Filter: `WHERE price >= 0 AND (freight_value >= 0 OR freight_value IS NULL)`
+
+### Iceberg Lakehouse Catalog
+- **Catalog Type**: Hadoop Catalog (`iceberg_catalog`) backed by `s3a://lakehouse/warehouse`
+- **Table Format**: Version 2 (`format-version = '2'`) with row-level upserts (`write.upsert.enabled = 'true'`)
+- **Compression**: `zstd` Parquet files with target size 128 MB
+
+### Fault Tolerance & Checkpointing
+- **Mode**: `EXACTLY_ONCE`
+- **Interval**: 60 seconds (min pause: 30s, timeout: 120s)
+- **Storage**: `s3a://lakehouse/checkpoints/flink`
+- **Restart Strategy**: Fixed delay (3 attempts, 10s delay)
+
+---
+
 ## VERIFICATION COMMANDS
 
 ```powershell
-# Check all containers are healthy
+# ── 1. Check all 9 containers ─────────────────────────────────
 docker compose ps
 
-# Check WAL is logical
-docker exec -it postgres psql -U postgres -d olist_ecommerce -c "SHOW wal_level;"
+# ── 2. Check Flink cluster health ─────────────────────────────
+# Open Web UI at http://localhost:8081 (1 TaskManager, 2 slots)
+curl -s http://localhost:8081/overview
 
-# Check publication exists
-docker exec -it postgres psql -U postgres -d olist_ecommerce -c "SELECT pubname, puballtables FROM pg_publication;"
+# ── 3. Run streaming jobs in one shot ─────────────────────────
+docker exec -i flink-sql-client bin/sql-client.sh -f /opt/flink/sql/run_all.sql
 
-# List all Redpanda topics
-docker exec redpanda rpk topic list
+# ── 4. Query clean Iceberg tables via Flink SQL ───────────────
+docker exec -it flink-sql-client bin/sql-client.sh
+# Inside SQL Client:
+SELECT count(*) FROM iceberg_catalog.ecommerce.orders;
+SELECT count(*) FROM iceberg_catalog.ecommerce.order_items;
+SELECT * FROM iceberg_catalog.ecommerce.order_items WHERE price < 0; -- MUST return 0 rows
 
-# Read last 5 messages from orders topic
-docker exec redpanda rpk topic consume ecommerce.public.orders --num 5 --offset start
+# ── 5. Verify Dead Letter Queue in Redpanda ───────────────────
+# Check messages in topic 'ecommerce.dlq.order_items'
+docker exec redpanda rpk topic consume ecommerce.dlq.order_items --num 5
 
-# Check Debezium logs
-docker logs debezium --tail 50
+# ── 6. Verify Parquet data files on MinIO ─────────────────────
+# MinIO Console at http://localhost:9001 (minioadmin / minioadmin123)
+# Inspect bucket: lakehouse/warehouse/ecommerce/
 ```
 
 ---
 
 ## ENGINEER 1 DEFINITION OF DONE ✅ (ACHIEVED)
 
-From the architecture document:
-> "Continuous, real-time CDC events are visible in the Redpanda Console
-> mirroring the exact state of the PostgreSQL schema, operating stably
-> under strict Docker memory limits."
-
-**Verified:**
 - 7 Redpanda topics with real CDC events confirmed ✅
 - WAL level = logical confirmed ✅
 - dbz_publication = all tables confirmed ✅
@@ -406,46 +455,45 @@ From the architecture document:
 
 ---
 
-## WHAT ENGINEER 2 NEEDS TO DO NEXT
+## ENGINEER 2 DEFINITION OF DONE ✅ (IMPLEMENTED)
 
-Engineer 2 picks up from the Redpanda topics.
+- Custom Flink 1.20 Docker image built with Kafka, Iceberg, and S3A JARs ✅
+- MinIO init container auto-provisions `lakehouse` bucket ✅
+- Flink Session Cluster (JobManager + TaskManager + SQL Client) added to Docker Compose ✅
+- Flink SQL sources consume CDC changelogs with `TIMESTAMP_LTZ(6)` ✅
+- Data quality gate branches clean records to Iceberg and invalid records to DLQ topic ✅
+- DLQ messages enriched with `error_reason` diagnostics ✅
+- Clean records upserted into Iceberg v2 tables on MinIO as compressed Parquet files ✅
+- Exactly-once checkpointing configured to S3A storage ✅
+- Cross-platform Unix LF line endings enforced via `.gitattributes` ✅
 
-**Their tasks:**
-1. Deploy Apache Flink MiniCluster (add to docker-compose.yml)
-2. Write Flink SQL DDL to consume `ecommerce.public.orders` topic
-3. Define data quality rules (filter records where price < 0)
-4. Route bad records to a DLQ topic (e.g., `ecommerce.dlq.order_items`)
-5. Sink clean records to Apache Iceberg via REST catalog (Polaris)
-6. Configure exactly-once semantics via Flink checkpointing
-7. Prove recovery: kill Flink task manager, verify it resumes without data loss
+---
 
-**Key integration point for Engineer 2:**
-- Flink must parse the Debezium JSON format (the `"op"` field for upserts)
-- The Iceberg sink must use equality fields = `order_id` for UPSERT mode
-- Flink SQL DDL must match the exact column names in the CDC JSON `"after"` payload
+## WHAT ENGINEER 3 NEEDS TO DO NEXT
 
-**Flink will connect to:**
-- Redpanda: `redpanda:9092` (inside Docker network)
-- MinIO (S3): `http://minio:9000` (inside Docker network)
-- Polaris catalog: `http://polaris:8181` (Engineer 3 sets this up)
+Engineer 3 picks up from the Iceberg tables on MinIO:
+1. **Apache Polaris REST Catalog**:
+   - Deploy Apache Polaris server in `docker-compose.yml`
+   - Point Polaris at `s3://lakehouse/warehouse`
+   - Migrate/register Iceberg tables from Hadoop Catalog to Polaris REST Catalog
+2. **Trino Query Engine**:
+   - Deploy Trino container connected to Polaris REST Catalog
+   - Configure Iceberg connector in Trino (`iceberg.properties`)
+   - Verify fast, federated analytical SQL queries across all e-commerce tables
+3. **Table Maintenance**:
+   - Schedule Iceberg table compaction and orphan file cleanup jobs
 
 ---
 
 ## KNOWN ISSUES / GOTCHAS
 
 1. **Port conflicts on host:** PostgreSQL is on 5433 (not 5432), Redpanda Console
-   is on 8088 (not 8080) because those ports were already in use on this machine.
-
-2. **init.sql only runs once:** If you need to change the schema, you must run
-   `docker compose down -v` first (wipes volumes) then `docker compose up -d`
-   to force re-initialization.
-
-3. **Data mutator must be re-run** after `docker compose down -v` since it wipes
+   is on 8088 (not 8080), Flink Web UI is on 8081.
+2. **Docker Desktop RAM allocation:** Requires ≥ 6 GB memory allocated to Docker VM (WSL 2 on Windows).
+3. **init.sql only runs once:** If you need to change the schema, run
+   `docker compose down -v` first (wipes volumes) then `docker compose up -d`.
+4. **Data mutator must be re-run** after `docker compose down -v` since it wipes
    the database. Always seed first, then simulate.
-
-4. **SQLAlchemy 2.0+** requires `text()` wrapper for all raw SQL strings.
-   Never use `conn.execute("SELECT ...")` — always use `conn.execute(text("SELECT ..."))`.
-
 5. **Windows terminal emoji issue:** PowerShell on Windows uses cp1252 encoding
-   by default. Avoid emoji (✅, ❌) in Python print() statements or use
-   `PYTHONIOENCODING=utf-8` environment variable.
+   by default. Avoid emoji in Python print() or use `$env:PYTHONIOENCODING="utf-8"`.
+

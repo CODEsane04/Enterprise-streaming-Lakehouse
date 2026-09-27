@@ -196,3 +196,172 @@ services:
       resources:
         limits:
           memory: 512M
+
+  # ──────────────────────────────────────────────
+  # 6. MinIO Init — Bucket Provisioner
+  # ──────────────────────────────────────────────
+  # Ensures the 'lakehouse' bucket exists before
+  # Flink attempts to write checkpoints or metadata.
+  # ──────────────────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - lakehouse-net
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb --ignore-existing myminio/lakehouse;
+      echo 'MinIO lakehouse bucket verified.';
+      exit 0;
+      "
+
+  # ──────────────────────────────────────────────
+  # 7. Flink JobManager — Orchestrator & Web UI
+  # ──────────────────────────────────────────────
+  # Manages job execution graphs, checkpoints,
+  # and provides the Web UI at localhost:8081.
+  # ──────────────────────────────────────────────
+  flink-jobmanager:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
+    image: custom-flink:1.20
+    container_name: flink-jobmanager
+    hostname: flink-jobmanager
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./flink/sql:/opt/flink/sql
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 768m
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.checkpointing.interval: 60s
+        execution.checkpointing.min-pause: 30s
+        execution.checkpointing.timeout: 120s
+        state.backend.type: hashmap
+        state.checkpoints.dir: s3a://lakehouse/checkpoints/flink
+        restart-strategy.type: fixed-delay
+        restart-strategy.fixed-delay.attempts: 3
+        restart-strategy.fixed-delay.delay: 10s
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        fs.s3a.endpoint: http://minio:9000
+        fs.s3a.path.style.access: true
+        fs.s3a.access.key: ${MINIO_ROOT_USER}
+        fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
+        fs.s3a.connection.ssl.enabled: false
+        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    networks:
+      - lakehouse-net
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
+  # ──────────────────────────────────────────────
+  # 8. Flink TaskManager — Stream Processing Worker
+  # ──────────────────────────────────────────────
+  # Executes stream transformations, state tracking,
+  # and writes Parquet snapshots into MinIO.
+  # ──────────────────────────────────────────────
+  flink-taskmanager:
+    image: custom-flink:1.20
+    container_name: flink-taskmanager
+    hostname: flink-taskmanager
+    restart: unless-stopped
+    command: taskmanager
+    depends_on:
+      flink-jobmanager:
+        condition: service_started
+    volumes:
+      - ./flink/sql:/opt/flink/sql
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.memory.process.size: 1280m
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 1
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        fs.s3a.endpoint: http://minio:9000
+        fs.s3a.path.style.access: true
+        fs.s3a.access.key: ${MINIO_ROOT_USER}
+        fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
+        fs.s3a.connection.ssl.enabled: false
+        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    networks:
+      - lakehouse-net
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
+  # ──────────────────────────────────────────────
+  # 9. Flink SQL Client — Interactive Terminal
+  # ──────────────────────────────────────────────
+  # CLI for submitting DDLs, queries, and streaming
+  # jobs to the Flink JobManager.
+  # ──────────────────────────────────────────────
+  flink-sql-client:
+    image: custom-flink:1.20
+    container_name: flink-sql-client
+    hostname: flink-sql-client
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    command: bin/sql-client.sh embedded -j flink-jobmanager:8081
+    depends_on:
+      flink-jobmanager:
+        condition: service_started
+      flink-taskmanager:
+        condition: service_started
+    volumes:
+      - ./flink/sql:/opt/flink/sql
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        s3.endpoint: http://minio:9000
+        s3.path.style.access: true
+        s3.access-key: ${MINIO_ROOT_USER}
+        s3.secret-key: ${MINIO_ROOT_PASSWORD}
+        fs.s3a.endpoint: http://minio:9000
+        fs.s3a.path.style.access: true
+        fs.s3a.access.key: ${MINIO_ROOT_USER}
+        fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
+        fs.s3a.connection.ssl.enabled: false
+        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+        fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    networks:
+      - lakehouse-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M

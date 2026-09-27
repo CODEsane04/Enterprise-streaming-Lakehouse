@@ -10,7 +10,8 @@ def download_olist_data():
     print(f"Dataset downloaded to: {path}")
     
     # Destination folder
-    dest = r"d:\DE project\data\olist"
+    default_dest = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "olist")
+    dest = os.getenv("DATA_DIR", r"d:\DE project\data\olist" if os.path.exists(r"d:\DE project") else default_dest)
     os.makedirs(dest, exist_ok=True)
     
     # Copy all CSV files
