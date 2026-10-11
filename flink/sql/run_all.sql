@@ -23,9 +23,15 @@ SET 'restart-strategy.fixed-delay.delay' = '10s';
 -- ── 2. Iceberg Hadoop Catalog ───────────────────────────────
 CREATE CATALOG iceberg_catalog WITH (
   'type' = 'iceberg',
-  'catalog-type' = 'hadoop',
-  'warehouse' = 's3a://lakehouse/warehouse',
+  'catalog-type' = 'rest',
+  'io-impl' = 'org.apache.iceberg.hadoop.HadoopFileIO',
+  'warehouse' = 'polaris',
+  'uri' = 'http://polaris:8181/api/catalog',
+  'credential' = 'a03cca35bfce7cf8:b6d7a396db32af73b5c2c9d41e8fa7b1',
+  'scope' = 'PRINCIPAL_ROLE:ALL',
   'property-version' = '1',
+  'client.region' = 'us-east-1',
+  's3.region' = 'us-east-1',
   'hadoop.fs.s3a.endpoint' = 'http://minio:9000',
   'hadoop.fs.s3a.path.style.access' = 'true',
   'hadoop.fs.s3a.access.key' = 'minioadmin',
