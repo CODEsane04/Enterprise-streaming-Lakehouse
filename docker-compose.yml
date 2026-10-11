@@ -1,61 +1,41 @@
-# ============================================================
-# Enterprise Agentic Streaming Lakehouse - Docker Compose
-# Engineer 1: Foundation Services
-# ============================================================
-# Services: PostgreSQL, Redpanda, Redpanda Console, MinIO
-# ============================================================
-
 networks:
   lakehouse-net:
     driver: bridge
-
 volumes:
-  postgres-data:
-  minio-data:
-  redpanda-data:
-
+  postgres-data: null
+  minio-data: null
+  redpanda-data: null
 services:
-
-  # ──────────────────────────────────────────────
-  # 1. PostgreSQL 16 — Operational Database
-  # ──────────────────────────────────────────────
-  # Stores e-commerce data. WAL logical decoding
-  # enabled so Debezium can capture row changes.
-  # ──────────────────────────────────────────────
   postgres:
     image: postgres:16
     container_name: postgres
     hostname: postgres
     restart: unless-stopped
     ports:
-      - "5433:5432"
+    - 5433:5432
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # ── WAL / Logical Replication Settings ──
-    # wal_level=logical        → enables logical decoding for CDC
-    # max_replication_slots=4  → allows Debezium to create a replication slot
-    # max_wal_senders=4        → concurrent WAL streaming connections
-    # max_slot_wal_keep_size=1GB → CRITICAL: caps WAL retention to prevent
-    #                              disk explosion if Debezium goes down
     command:
-      - "postgres"
-      - "-c" 
-      - "wal_level=logical"
-      - "-c"
-      - "max_replication_slots=4"
-      - "-c"
-      - "max_wal_senders=4"
-      - "-c"
-      - "max_slot_wal_keep_size=1GB"
+    - postgres
+    - -c
+    - wal_level=logical
+    - -c
+    - max_replication_slots=4
+    - -c
+    - max_wal_senders=4
+    - -c
+    - max_slot_wal_keep_size=1GB
     volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    - postgres-data:/var/lib/postgresql/data
+    - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - lakehouse-net
+    - lakehouse-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}
       interval: 10s
       timeout: 5s
       retries: 5
@@ -63,43 +43,39 @@ services:
       resources:
         limits:
           memory: 512M
-
-  # ──────────────────────────────────────────────
-  # 2. Redpanda — Event Broker (Kafka-compatible)
-  # ──────────────────────────────────────────────
-  # Written in C++, no JVM, no ZooKeeper.
-  # Receives CDC events from Debezium and buffers
-  # them for Flink to consume downstream.
-  # ──────────────────────────────────────────────
   redpanda:
     image: redpandadata/redpanda:latest
     container_name: redpanda
     hostname: redpanda
     restart: unless-stopped
     command:
-      - redpanda
-      - start
-      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
-      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
-      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
-      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
-      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
-      - --rpc-addr redpanda:33145
-      - --advertise-rpc-addr redpanda:33145
-      - --mode dev-container
-      - --smp 1
-      - --default-log-level=warn
+    - redpanda
+    - start
+    - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+    - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+    - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+    - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+    - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+    - --rpc-addr redpanda:33145
+    - --advertise-rpc-addr redpanda:33145
+    - --mode dev-container
+    - --smp 1
+    - --default-log-level=warn
     ports:
-      - "19092:19092"   # Kafka API (external access from host)
-      - "18082:18082"   # Pandaproxy
-      - "18081:18081"   # Schema Registry
-      - "9644:9644"     # Admin API
+    - 19092:19092
+    - 18082:18082
+    - 18081:18081
+    - 9644:9644
     volumes:
-      - redpanda-data:/var/redpanda/data
+    - redpanda-data:/var/redpanda/data
     networks:
-      - lakehouse-net
+    - lakehouse-net
     healthcheck:
-      test: ["CMD", "rpk", "cluster", "health"]
+      test:
+      - CMD
+      - rpk
+      - cluster
+      - health
       interval: 15s
       timeout: 10s
       retries: 5
@@ -107,61 +83,51 @@ services:
       resources:
         limits:
           memory: 512M
-
-  # ──────────────────────────────────────────────
-  # 3. Redpanda Console — Web UI
-  # ──────────────────────────────────────────────
-  # Browse topics, inspect CDC JSON messages,
-  # monitor consumer groups. Runs at localhost:8080
-  # ──────────────────────────────────────────────
   redpanda-console:
     image: redpandadata/console:latest
     container_name: redpanda-console
     hostname: redpanda-console
     restart: unless-stopped
     ports:
-      - "8088:8080"
+    - 8088:8080
     environment:
       KAFKA_BROKERS: redpanda:9092
-      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_ENABLED: 'true'
       KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
-      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_ENABLED: 'true'
       REDPANDA_ADMINAPI_URLS: http://redpanda:9644
     depends_on:
       redpanda:
         condition: service_healthy
     networks:
-      - lakehouse-net
+    - lakehouse-net
     deploy:
       resources:
         limits:
           memory: 256M
-
-  # ──────────────────────────────────────────────
-  # 4. MinIO — S3-Compatible Object Storage
-  # ──────────────────────────────────────────────
-  # Stores Iceberg Parquet data files.
-  # Engineer 3 will configure buckets later.
-  # Console UI at localhost:9001
-  # ──────────────────────────────────────────────
   minio:
-    image: minio/minio:latest
     container_name: minio
     hostname: minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # MinIO Console UI
+    - 9000:9000
+    - 9001:9001
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     volumes:
-      - minio-data:/data
+    - minio-data:/data
     networks:
-      - lakehouse-net
+      lakehouse-net:
+        aliases:
+        - lakehouse.minio
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test:
+      - CMD
+      - mc
+      - ready
+      - local
       interval: 15s
       timeout: 10s
       retries: 5
@@ -169,13 +135,7 @@ services:
       resources:
         limits:
           memory: 512M
-
-  # ──────────────────────────────────────────────
-  # 5. Debezium Server — CDC Capture
-  # ──────────────────────────────────────────────
-  # Standalone Quarkus app. Tails the Postgres WAL
-  # and writes JSON events to Redpanda topics.
-  # ──────────────────────────────────────────────
+    image: elestio/minio:latest
   debezium:
     image: quay.io/debezium/server:2.7
     container_name: debezium
@@ -187,54 +147,36 @@ services:
       redpanda:
         condition: service_healthy
     volumes:
-      - ./debezium/application.properties:/debezium/conf/application.properties
+    - ./debezium/application.properties:/debezium/conf/application.properties
     environment:
-      JAVA_OPTS: "-Xmx256m"
+      JAVA_OPTS: -Xmx256m
+    platform: linux/amd64
     networks:
-      - lakehouse-net
+    - lakehouse-net
     deploy:
       resources:
         limits:
           memory: 512M
-
-  # ──────────────────────────────────────────────
-  # 6. MinIO Init — Bucket Provisioner
-  # ──────────────────────────────────────────────
-  # Ensures the 'lakehouse' bucket exists before
-  # Flink attempts to write checkpoints or metadata.
-  # ──────────────────────────────────────────────
   minio-init:
-    image: minio/minio:latest
     container_name: minio-init
     depends_on:
       minio:
         condition: service_healthy
     networks:
-      - lakehouse-net
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
-      /usr/bin/mc mb --ignore-existing myminio/lakehouse;
-      echo 'MinIO lakehouse bucket verified.';
-      exit 0;
-      "
-
-  # ──────────────────────────────────────────────
-  # 7. Flink JobManager — Orchestrator & Web UI
-  # ──────────────────────────────────────────────
-  # Manages job execution graphs, checkpoints,
-  # and provides the Web UI at localhost:8081.
-  # ──────────────────────────────────────────────
+    - lakehouse-net
+    entrypoint: /bin/sh -c " mc alias set myminio http://minio:9000 ${MINIO_ROOT_USER}
+      ${MINIO_ROOT_PASSWORD}; mc mb --ignore-existing myminio/lakehouse; echo 'MinIO
+      lakehouse bucket verified.'; exit 0; "
+    image: elestio/minio:latest
   flink-jobmanager:
     build:
       context: ./flink
       dockerfile: Dockerfile
-    image: custom-flink:1.20
     container_name: flink-jobmanager
     hostname: flink-jobmanager
     restart: unless-stopped
     ports:
-      - "8081:8081"
+    - 8081:8081
     command: jobmanager
     depends_on:
       redpanda:
@@ -244,53 +186,72 @@ services:
       minio-init:
         condition: service_completed_successfully
     volumes:
-      - ./flink/sql:/opt/flink/sql
-      - ./core-site.xml:/opt/flink/conf/core-site.xml
+    - ./flink/sql:/opt/flink/sql
+    - ./core-site.xml:/opt/flink/conf/core-site.xml
     environment:
-      - HADOOP_CONF_DIR=/opt/flink/conf
-      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: flink-jobmanager
-        jobmanager.memory.process.size: 768m
-        taskmanager.numberOfTaskSlots: 2
-        parallelism.default: 1
-        execution.checkpointing.mode: EXACTLY_ONCE
-        execution.checkpointing.interval: 60s
-        execution.checkpointing.min-pause: 30s
-        execution.checkpointing.timeout: 120s
-        state.backend.type: hashmap
-        state.checkpoints.dir: s3a://lakehouse/checkpoints/flink
-        restart-strategy.type: fixed-delay
-        restart-strategy.fixed-delay.attempts: 3
-        restart-strategy.fixed-delay.delay: 10s
-        s3.endpoint: http://minio:9000
-        s3.path.style.access: true
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
-        fs.s3a.endpoint: http://minio:9000
-        fs.s3a.path.style.access: true
-        fs.s3a.access.key: ${MINIO_ROOT_USER}
-        fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
-        fs.s3a.connection.ssl.enabled: false
-        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
-        fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
-        fs.allowed-fallback-filesystems: s3a
+    - HADOOP_CONF_DIR=/opt/flink/conf
+    - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    - 'FLINK_PROPERTIES=
+
+      jobmanager.rpc.address: flink-jobmanager
+
+      jobmanager.memory.process.size: 768m
+
+      taskmanager.numberOfTaskSlots: 2
+
+      parallelism.default: 1
+
+      execution.checkpointing.mode: EXACTLY_ONCE
+
+      execution.checkpointing.interval: 60s
+
+      execution.checkpointing.min-pause: 30s
+
+      execution.checkpointing.timeout: 120s
+
+      state.backend.type: hashmap
+
+      state.checkpoints.dir: s3a://lakehouse/checkpoints/flink
+
+      restart-strategy.type: fixed-delay
+
+      restart-strategy.fixed-delay.attempts: 3
+
+      restart-strategy.fixed-delay.delay: 10s
+
+      s3.endpoint: http://minio:9000
+
+      s3.path.style.access: true
+
+      s3.access-key: ${MINIO_ROOT_USER}
+
+      s3.secret-key: ${MINIO_ROOT_PASSWORD}
+
+      fs.s3a.endpoint: http://minio:9000
+
+      fs.s3a.path.style.access: true
+
+      fs.s3a.access.key: ${MINIO_ROOT_USER}
+
+      fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
+
+      fs.s3a.connection.ssl.enabled: false
+
+      fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+
+      fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+
+      fs.allowed-fallback-filesystems: s3a
+
+      '
     networks:
-      - lakehouse-net
+    - lakehouse-net
     deploy:
       resources:
         limits:
           memory: 1024M
-
-  # ──────────────────────────────────────────────
-  # 8. Flink TaskManager — Stream Processing Worker
-  # ──────────────────────────────────────────────
-  # Executes stream transformations, state tracking,
-  # and writes Parquet snapshots into MinIO.
-  # ──────────────────────────────────────────────
-  flink-taskmanager:
     image: custom-flink:1.20
+  flink-taskmanager:
     container_name: flink-taskmanager
     hostname: flink-taskmanager
     restart: unless-stopped
@@ -299,44 +260,54 @@ services:
       flink-jobmanager:
         condition: service_started
     volumes:
-      - ./flink/sql:/opt/flink/sql
-      - ./core-site.xml:/opt/flink/conf/core-site.xml
+    - ./flink/sql:/opt/flink/sql
+    - ./core-site.xml:/opt/flink/conf/core-site.xml
     environment:
-      - HADOOP_CONF_DIR=/opt/flink/conf
-      - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: flink-jobmanager
-        taskmanager.memory.process.size: 1280m
-        taskmanager.numberOfTaskSlots: 2
-        parallelism.default: 1
-        s3.endpoint: http://minio:9000
-        s3.path.style.access: true
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
-        fs.s3a.endpoint: http://minio:9000
-        fs.s3a.path.style.access: true
-        fs.s3a.access.key: ${MINIO_ROOT_USER}
-        fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
-        fs.s3a.connection.ssl.enabled: false
-        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
-        fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
-        fs.allowed-fallback-filesystems: s3a
+    - HADOOP_CONF_DIR=/opt/flink/conf
+    - JOB_MANAGER_RPC_ADDRESS=flink-jobmanager
+    - 'FLINK_PROPERTIES=
+
+      jobmanager.rpc.address: flink-jobmanager
+
+      taskmanager.memory.process.size: 1280m
+
+      taskmanager.numberOfTaskSlots: 2
+
+      parallelism.default: 1
+
+      s3.endpoint: http://minio:9000
+
+      s3.path.style.access: true
+
+      s3.access-key: ${MINIO_ROOT_USER}
+
+      s3.secret-key: ${MINIO_ROOT_PASSWORD}
+
+      fs.s3a.endpoint: http://minio:9000
+
+      fs.s3a.path.style.access: true
+
+      fs.s3a.access.key: ${MINIO_ROOT_USER}
+
+      fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
+
+      fs.s3a.connection.ssl.enabled: false
+
+      fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+
+      fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+
+      fs.allowed-fallback-filesystems: s3a
+
+      '
     networks:
-      - lakehouse-net
+    - lakehouse-net
     deploy:
       resources:
         limits:
           memory: 1536M
-
-  # ──────────────────────────────────────────────
-  # 9. Flink SQL Client — Interactive Terminal
-  # ──────────────────────────────────────────────
-  # CLI for submitting DDLs, queries, and streaming
-  # jobs to the Flink JobManager.
-  # ──────────────────────────────────────────────
-  flink-sql-client:
     image: custom-flink:1.20
+  flink-sql-client:
     container_name: flink-sql-client
     hostname: flink-sql-client
     restart: unless-stopped
@@ -349,29 +320,87 @@ services:
       flink-taskmanager:
         condition: service_started
     volumes:
-      - ./flink/sql:/opt/flink/sql
-      - ./core-site.xml:/opt/flink/conf/core-site.xml
+    - ./flink/sql:/opt/flink/sql
+    - ./core-site.xml:/opt/flink/conf/core-site.xml
     environment:
-      - HADOOP_CONF_DIR=/opt/flink/conf
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: flink-jobmanager
-        rest.address: flink-jobmanager
-        s3.endpoint: http://minio:9000
-        s3.path.style.access: true
-        s3.access-key: ${MINIO_ROOT_USER}
-        s3.secret-key: ${MINIO_ROOT_PASSWORD}
-        fs.s3a.endpoint: http://minio:9000
-        fs.s3a.path.style.access: true
-        fs.s3a.access.key: ${MINIO_ROOT_USER}
-        fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
-        fs.s3a.connection.ssl.enabled: false
-        fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
-        fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
-        fs.allowed-fallback-filesystems: s3a
+    - HADOOP_CONF_DIR=/opt/flink/conf
+    - 'FLINK_PROPERTIES=
+
+      jobmanager.rpc.address: flink-jobmanager
+
+      rest.address: flink-jobmanager
+
+      s3.endpoint: http://minio:9000
+
+      s3.path.style.access: true
+
+      s3.access-key: ${MINIO_ROOT_USER}
+
+      s3.secret-key: ${MINIO_ROOT_PASSWORD}
+
+      fs.s3a.endpoint: http://minio:9000
+
+      fs.s3a.path.style.access: true
+
+      fs.s3a.access.key: ${MINIO_ROOT_USER}
+
+      fs.s3a.secret.key: ${MINIO_ROOT_PASSWORD}
+
+      fs.s3a.connection.ssl.enabled: false
+
+      fs.s3a.impl: org.apache.hadoop.fs.s3a.S3AFileSystem
+
+      fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+
+      fs.allowed-fallback-filesystems: s3a
+
+      '
     networks:
-      - lakehouse-net
+    - lakehouse-net
     deploy:
       resources:
         limits:
           memory: 512M
+    image: custom-flink:1.20
+  polaris:
+    image: apache/polaris:latest
+    container_name: polaris
+    hostname: polaris
+    restart: unless-stopped
+    ports:
+    - 8181:8181
+    environment:
+    - POLARIS_BOOTSTRAP=true
+    - AWS_REGION=us-east-1
+    - AWS_DEFAULT_REGION=us-east-1
+    - AWS_ACCESS_KEY_ID=minioadmin
+    - AWS_SECRET_ACCESS_KEY=minioadmin123
+    - POLARIS_FEATURES_SUPPORTED_STORAGE_TYPES=S3,FILE
+    - JAVA_OPTS_APPEND=-Daws.accessKeyId=minioadmin -Daws.secretAccessKey=minioadmin123 -Daws.region=us-east-1 -Daws.sts.endpoint=http://minio:9000 -Daws.s3.endpoint=http://minio:9000 -Daws.endpointUrl=http://minio:9000 -Daws.endpointUrlSts=http://minio:9000 -Daws.endpointUrlS3=http://minio:9000 -Dsoftware.amazon.awssdk.endpoints.s3=http://minio:9000 -Dsoftware.amazon.awssdk.endpoints.sts=http://minio:9000 -Daws.s3.pathStyleAccessEnabled=true -Dsoftware.amazon.awssdk.s3.pathStyleAccessEnabled=true
+    networks:
+    - lakehouse-net
+    depends_on:
+    - minio
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    platform: linux/amd64
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    hostname: trino
+    restart: unless-stopped
+    ports:
+    - 8089:8080
+    volumes:
+    - ./trino/etc:/etc/trino
+    networks:
+    - lakehouse-net
+    depends_on:
+    - polaris
+    - minio
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
