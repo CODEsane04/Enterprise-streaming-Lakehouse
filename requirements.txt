@@ -1,0 +1,22 @@
+# ================================================================
+# Enterprise Agentic Streaming Lakehouse - Engineer 4 Dependencies
+# AI Agent Serving Layer & AST Security Guardrails
+# ================================================================
+
+# Model Context Protocol (MCP) SDKs
+mcp>=1.2.0
+fastmcp>=0.4.0
+
+# Distributed SQL Query Engine Client
+trino>=0.330.0
+
+# Deterministic SQL AST Parsing & Security Analysis
+sqlglot>=25.0.0
+
+# Data Modeling, Settings & Validation
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+
+# Testing & Verification
+pytest>=8.0.0
+

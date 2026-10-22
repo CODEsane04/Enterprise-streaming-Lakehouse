@@ -1,8 +1,8 @@
-# PROJECT CONTEXT — Engineers 1, 2, and 3 Complete
+# PROJECT CONTEXT — Engineer 4 In Progress (Engineers 1, 2, 3 Complete)
 # Enterprise Agentic Streaming Lakehouse
 # Paste this into a new chat to restore full context.
-# Last updated: 2026-10-11
-# Branch: feat/engineer-3-polaris-trino
+# Last updated: 2026-10-22
+# Branch: feat/engineer-4-fastmcp-security
 # ================================================================
 
 ## PROJECT OVERVIEW
@@ -25,7 +25,7 @@ The dataset is the **Olist Brazilian E-Commerce** dataset (~100k orders,
 - Engineer 1 (DONE): PostgreSQL + Debezium CDC + Redpanda + Data Mutator
 - Engineer 2 (DONE): Apache Flink 1.20 + Data Quality (DLQ) + Iceberg Sink on MinIO + Checkpointing
 - Engineer 3 (DONE): MinIO S3 Object Storage + Apache Polaris (REST Catalog) + Trino Query Engine + Table Maintenance
-- Engineer 4 (NEXT): FastMCP Server + sqlglot AST Security / Guardrails + LLM Benchmarking & Evaluation
+- Engineer 4 (IN PROGRESS): FastMCP Server + sqlglot AST Security / Guardrails + LLM Benchmarking & Evaluation
 
 ---
 
@@ -208,6 +208,16 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
    - Formulate benchmark questions spanning descriptive, diagnostic, and analytical e-commerce metrics (e.g., revenue trends, delivery performance, freight anomaly rates).
    - Test LLM accuracy in generating correct Trino SQL across single-turn and multi-turn workflows.
    - Benchmark latency, accuracy, and adherence to security constraints.
+
+---
+
+## ENGINEER 4 PROGRESS & STATUS (IN PROGRESS)
+
+- **Branch**: `feat/engineer-4-fastmcp-security`
+- **Master Plan**: Defined in `eng_4.md` (5 phases).
+- **Phase 1: Environment & Trino Connectivity**:
+  - `requirements.txt` created with pinned versions (`fastmcp`, `mcp`, `trino`, `sqlglot`, `pydantic`, `pytest`, `python-dotenv`) ✅
+  - Python 3.12 virtual environment (`.venv`) initialized and all dependencies installed and validated ✅
 
 ---
 
