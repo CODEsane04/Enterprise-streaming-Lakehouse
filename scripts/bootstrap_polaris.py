@@ -4,8 +4,8 @@ import json
 import sys
 
 POLARIS_URL = os.getenv("POLARIS_EXTERNAL_URI", os.getenv("POLARIS_URL", "http://localhost:8181")).rstrip("/").replace("/api/catalog", "")
-CLIENT_ID = os.getenv("POLARIS_CLIENT_ID", "5cbb886e21fc0e61")
-CLIENT_SECRET = os.getenv("POLARIS_CLIENT_SECRET", "33bacf21d453fc745a80e2177779b2b1")
+CLIENT_ID = os.getenv("POLARIS_CLIENT_ID", "408b1d4a5298b1aa")
+CLIENT_SECRET = os.getenv("POLARIS_CLIENT_SECRET", "6a5c9c179bbac96d85596d886386867f")
 S3_ENDPOINT = os.getenv("S3_ENDPOINT", "http://minio:9000")
 S3_BUCKET = os.getenv("S3_BUCKET", "lakehouse")
 MINIO_USER = os.getenv("MINIO_ROOT_USER", "minioadmin")

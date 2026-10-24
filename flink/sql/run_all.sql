@@ -27,7 +27,7 @@ CREATE CATALOG iceberg_catalog WITH (
   'io-impl' = 'org.apache.iceberg.hadoop.HadoopFileIO',
   'warehouse' = 'polaris',
   'uri' = 'http://polaris:8181/api/catalog',
-  'credential' = '5cbb886e21fc0e61:33bacf21d453fc745a80e2177779b2b1',
+  'credential' = '408b1d4a5298b1aa:6a5c9c179bbac96d85596d886386867f',
   'scope' = 'PRINCIPAL_ROLE:ALL',
   'property-version' = '1',
   'client.region' = 'us-east-1',
