@@ -220,6 +220,10 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Python 3.12 virtual environment (`.venv`) initialized and all dependencies installed and validated ✅
   - Trino connectivity validation script implemented (`scripts/test_trino_connection.py`) and verified end-to-end against live Trino v484 coordinator on port 8089 ✅
   - Iceberg catalog (`iceberg`), namespace (`ecommerce`), and tables (`orders`, `order_items`, `order_payments`) successfully discovered and queried via Python ✅
+- **Phase 2: Deterministic SQL Security Guardrails (IN PROGRESS)**:
+  - `src/security/exceptions.py` implemented with custom exception hierarchy (`SQLSecurityError`, `SQLSyntaxError`, `ForbiddenOperationError`, etc.) ✅
+  - `src/security/validator.py` created with `SQLSecurityValidator` and `ValidationResult` Pydantic models ✅
+  - Implemented AST parsing using `sqlglot.parse_one(sql, read="trino")` with multi-statement injection protection and table identifier extraction ✅
 
 ---
 
