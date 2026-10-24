@@ -43,7 +43,7 @@ Phase 5: Containerization & Final Handover
 
 * [x] **Task 2.1: Create the SQL AST Validator module (`src/security/validator.py`)** ✅
   * Use `sqlglot.parse_one(sql, read="trino")` to transform incoming raw SQL strings into an Abstract Syntax Tree.
-* [ ] **Task 2.2: Enforce Read-Only execution policies**
+* [x] **Task 2.2: Enforce Read-Only execution policies** ✅
   * Assert that the root AST node is strictly `exp.Select` or `exp.Explain`.
   * Recursively scan the AST (`.find_all()`) and instantly reject any DDL/DML mutation nodes: `exp.Drop`, `exp.Delete`, `exp.Insert`, `exp.Update`, `exp.Alter`, `exp.Truncate`.
 * [ ] **Task 2.3: Enforce Resource Governance (Row Limiting)**

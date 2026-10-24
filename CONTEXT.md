@@ -224,6 +224,7 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - `src/security/exceptions.py` implemented with custom exception hierarchy (`SQLSecurityError`, `SQLSyntaxError`, `ForbiddenOperationError`, etc.) ✅
   - `src/security/validator.py` created with `SQLSecurityValidator` and `ValidationResult` Pydantic models ✅
   - Implemented AST parsing using `sqlglot.parse_one(sql, read="trino")` with multi-statement injection protection and table identifier extraction ✅
+  - Enforced strict read-only execution policy via root node inspection and recursive tree walking (`ast.walk()`), rejecting `DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, and `CREATE` mutations ✅
 
 ---
 
