@@ -46,7 +46,7 @@ Phase 5: Containerization & Final Handover
 * [x] **Task 2.2: Enforce Read-Only execution policies** ✅
   * Assert that the root AST node is strictly `exp.Select` or `exp.Explain`.
   * Recursively scan the AST (`.find_all()`) and instantly reject any DDL/DML mutation nodes: `exp.Drop`, `exp.Delete`, `exp.Insert`, `exp.Update`, `exp.Alter`, `exp.Truncate`.
-* [ ] **Task 2.3: Enforce Resource Governance (Row Limiting)**
+* [x] **Task 2.3: Enforce Resource Governance (Row Limiting)** ✅
   * Inspect the AST for a `LIMIT` clause.
   * If missing, programmatically inject an `exp.Limit(100)` node into the tree to prevent runaway queries from blowing up Docker memory.
   * If present but exceeding the maximum threshold (e.g., `LIMIT 50000`), clamp it down to the allowed maximum (e.g., `1000`).

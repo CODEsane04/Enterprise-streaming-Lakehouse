@@ -225,6 +225,8 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - `src/security/validator.py` created with `SQLSecurityValidator` and `ValidationResult` Pydantic models ✅
   - Implemented AST parsing using `sqlglot.parse_one(sql, read="trino")` with multi-statement injection protection and table identifier extraction ✅
   - Enforced strict read-only execution policy via root node inspection and recursive tree walking (`ast.walk()`), rejecting `DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, and `CREATE` mutations ✅
+  - Implemented resource governance and row limiting via AST manipulation (`enforce_resource_governance`), injecting default limits (`LIMIT 100`) and clamping runaway queries (`MAX_LIMIT 1000`) to protect memory ✅
+  - Authored `llm_orchestration_notes.md` detailing analytical push-down aggregations vs. raw batched extractions and agent pre-planning directives ✅
 
 ---
 

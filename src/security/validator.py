@@ -2,11 +2,12 @@
 src/security/validator.py
 ================================================================
 Enterprise Agentic Streaming Lakehouse - Engineer 4
-Task 2.1 & 2.2: SQL AST Validator with Deterministic Read-Only Guardrails
+Task 2.1, 2.2 & 2.3: SQL AST Validator with Read-Only Policies & Resource Governance
 
 Parses incoming raw SQL strings into Abstract Syntax Trees (AST)
-using the Trino dialect, inspects structural intent, and enforces
-strict read-only execution policies (blocking DDL/DML mutations).
+using the Trino dialect, inspects structural intent, enforces strict
+read-only execution policies (blocking DDL/DML), and injects/clamps
+LIMIT clauses for memory protection and resource governance.
 ================================================================
 """
 
@@ -40,6 +41,8 @@ class SQLSecurityValidator:
     """
 
     DEFAULT_DIALECT = "trino"
+    DEFAULT_LIMIT = 100
+    MAX_LIMIT = 1000
 
     # AST node types that are strictly forbidden anywhere in the query
     FORBIDDEN_MUTATION_NODES: Tuple[Type[exp.Expression], ...] = (
@@ -52,8 +55,15 @@ class SQLSecurityValidator:
         exp.Create,
     )
 
-    def __init__(self, dialect: str = DEFAULT_DIALECT):
+    def __init__(
+        self,
+        dialect: str = DEFAULT_DIALECT,
+        default_limit: int = DEFAULT_LIMIT,
+        max_limit: int = MAX_LIMIT,
+    ):
         self.dialect = dialect
+        self.default_limit = default_limit
+        self.max_limit = max_limit
 
     def parse(self, sql: str) -> exp.Expression:
         """
@@ -141,6 +151,51 @@ class SQLSecurityValidator:
                     details=f"Command '{node.this}' is not permitted."
                 )
 
+    def enforce_resource_governance(self, ast: exp.Expression) -> Tuple[exp.Expression, Optional[int]]:
+        """
+        Enforces resource governance on the AST to prevent runaway queries
+        from overwhelming Lakehouse memory.
+
+        Rules:
+        1. If the outer query has no LIMIT clause, injects DEFAULT_LIMIT (e.g., 100).
+        2. If the outer query specifies a LIMIT exceeding MAX_LIMIT (e.g., > 1000),
+           clamps the LIMIT down to MAX_LIMIT.
+        3. If the query specifies an invalid or non-positive LIMIT (<= 0),
+           replaces it with DEFAULT_LIMIT.
+        4. Leaves EXPLAIN queries untouched.
+
+        Args:
+            ast: The root sqlglot Expression node.
+
+        Returns:
+            Tuple[exp.Expression, Optional[int]]: Modified AST and applied integer limit.
+        """
+        if not isinstance(ast, (exp.Query, exp.Select)):
+            return ast, None
+
+        limit_clause = ast.args.get("limit")
+
+        # Case 1: No outer LIMIT clause present -> Inject DEFAULT_LIMIT
+        if limit_clause is None:
+            ast = ast.limit(self.default_limit)
+            return ast, self.default_limit
+
+        # Case 2: Outer LIMIT present -> Inspect and clamp if necessary
+        expr = limit_clause.expression
+        try:
+            val = int(expr.name) if hasattr(expr, "name") and expr.name.isdigit() else int(str(expr))
+        except (ValueError, TypeError):
+            val = self.default_limit
+
+        if val > self.max_limit:
+            limit_clause.set("expression", exp.Literal.number(self.max_limit))
+            return ast, self.max_limit
+        elif val <= 0:
+            limit_clause.set("expression", exp.Literal.number(self.default_limit))
+            return ast, self.default_limit
+
+        return ast, val
+
     def extract_tables(self, ast: exp.Expression) -> List[str]:
         """
         Extracts all table identifiers referenced in the AST.
@@ -160,23 +215,26 @@ class SQLSecurityValidator:
 
     def validate(self, sql: str) -> ValidationResult:
         """
-        Validates raw SQL string against all security guardrails.
+        Validates raw SQL string against all security guardrails and enforces
+        resource governance (row limiting).
         
         Args:
             sql: Raw SQL string to validate.
 
         Returns:
-            ValidationResult with validation status and extracted metadata.
+            ValidationResult with validation status, sanitized SQL, and limit metadata.
         """
         try:
             ast = self.parse(sql)
             self.check_read_only(ast)
+            ast, applied_limit = self.enforce_resource_governance(ast)
             tables = self.extract_tables(ast)
             sanitized = ast.sql(dialect=self.dialect)
             return ValidationResult(
                 is_valid=True,
                 sanitized_sql=sanitized,
                 tables_referenced=tables,
+                applied_limit=applied_limit,
             )
         except (SQLSyntaxError, ForbiddenOperationError) as e:
             return ValidationResult(
