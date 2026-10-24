@@ -50,7 +50,7 @@ Phase 5: Containerization & Final Handover
   * Inspect the AST for a `LIMIT` clause.
   * If missing, programmatically inject an `exp.Limit(100)` node into the tree to prevent runaway queries from blowing up Docker memory.
   * If present but exceeding the maximum threshold (e.g., `LIMIT 50000`), clamp it down to the allowed maximum (e.g., `1000`).
-* [ ] **Task 2.4: Enforce Table & Schema Allowlists**
+* [x] **Task 2.4: Enforce Table & Schema Allowlists** ✅
   * Ensure all referenced tables in the AST belong strictly to `iceberg.ecommerce.*` or `ecommerce.*`. Block access to internal catalogs or system tables.
 * [ ] **Task 2.5: Build automated security test suite (`tests/test_security.py`)**
   * Write unit tests covering valid analytical queries, table drop attempts, update/delete attempts, and prompt injection SQL bypassing.

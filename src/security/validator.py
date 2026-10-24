@@ -2,22 +2,27 @@
 src/security/validator.py
 ================================================================
 Enterprise Agentic Streaming Lakehouse - Engineer 4
-Task 2.1, 2.2 & 2.3: SQL AST Validator with Read-Only Policies & Resource Governance
+Task 2.1, 2.2, 2.3 & 2.4: SQL AST Validator with Full Guardrails
 
 Parses incoming raw SQL strings into Abstract Syntax Trees (AST)
 using the Trino dialect, inspects structural intent, enforces strict
-read-only execution policies (blocking DDL/DML), and injects/clamps
-LIMIT clauses for memory protection and resource governance.
+read-only execution policies (blocking DDL/DML), injects/clamps LIMIT
+clauses for resource governance, and validates table and schema identifiers
+against strict Lakehouse allowlists.
 ================================================================
 """
 
-from typing import Optional, List, Tuple, Type
+from typing import Optional, List, Set, Tuple, Type
 from pydantic import BaseModel, Field
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
-from .exceptions import SQLSyntaxError, ForbiddenOperationError
+from .exceptions import (
+    SQLSyntaxError,
+    ForbiddenOperationError,
+    InvalidNamespaceError,
+)
 
 
 class ValidationResult(BaseModel):
@@ -55,15 +60,36 @@ class SQLSecurityValidator:
         exp.Create,
     )
 
+    # Allowlisted Lakehouse namespaces and tables
+    ALLOWED_CATALOGS: Set[str] = {"iceberg", ""}
+    ALLOWED_SCHEMAS: Set[str] = {"ecommerce", ""}
+    ALLOWED_TABLES: Set[str] = {
+        "orders",
+        "order_items",
+        "order_payments",
+        "order_reviews",
+        "customers",
+        "geolocation",
+        "products",
+        "sellers",
+        "product_category_name_translation",
+    }
+
     def __init__(
         self,
         dialect: str = DEFAULT_DIALECT,
         default_limit: int = DEFAULT_LIMIT,
         max_limit: int = MAX_LIMIT,
+        allowed_catalogs: Optional[Set[str]] = None,
+        allowed_schemas: Optional[Set[str]] = None,
+        allowed_tables: Optional[Set[str]] = None,
     ):
         self.dialect = dialect
         self.default_limit = default_limit
         self.max_limit = max_limit
+        self.allowed_catalogs = allowed_catalogs if allowed_catalogs is not None else self.ALLOWED_CATALOGS
+        self.allowed_schemas = allowed_schemas if allowed_schemas is not None else self.ALLOWED_SCHEMAS
+        self.allowed_tables = allowed_tables if allowed_tables is not None else self.ALLOWED_TABLES
 
     def parse(self, sql: str) -> exp.Expression:
         """
@@ -151,6 +177,60 @@ class SQLSecurityValidator:
                     details=f"Command '{node.this}' is not permitted."
                 )
 
+    def check_table_allowlists(self, ast: exp.Expression) -> None:
+        """
+        Validates all table references against the allowlisted Lakehouse namespace.
+
+        Rules:
+        1. Catalogs must belong to ALLOWED_CATALOGS ('iceberg' or default).
+        2. Schemas must belong to ALLOWED_SCHEMAS ('ecommerce' or default).
+        3. Table names must belong to ALLOWED_TABLES (the 9 e-commerce tables).
+        4. Common Table Expressions (CTEs) are dynamically recognized as local aliases.
+
+        Args:
+            ast: The root sqlglot Expression node.
+
+        Raises:
+            InvalidNamespaceError: If any table, schema, or catalog violates the allowlist.
+        """
+        # Extract CTE aliases so they are not flagged as unrecognized physical tables
+        cte_aliases = {
+            cte.alias.lower()
+            for cte in ast.find_all(exp.CTE)
+            if cte.alias
+        }
+
+        for table_node in ast.find_all(exp.Table):
+            tbl_name = table_node.name.lower() if table_node.name else ""
+            schema_name = table_node.db.lower() if table_node.db else ""
+            catalog_name = table_node.catalog.lower() if table_node.catalog else ""
+
+            # Local CTE alias - safe to skip
+            if tbl_name in cte_aliases:
+                continue
+
+            # Check Catalog
+            if catalog_name not in self.allowed_catalogs:
+                raise InvalidNamespaceError(
+                    f"Unauthorized catalog '{catalog_name}'.",
+                    details=f"Allowed catalog is 'iceberg'. Access to '{catalog_name}' is forbidden."
+                )
+
+            # Check Schema
+            if schema_name not in self.allowed_schemas:
+                raise InvalidNamespaceError(
+                    f"Unauthorized schema '{schema_name}'.",
+                    details=f"Allowed schema is 'ecommerce'. Access to '{schema_name}' is forbidden."
+                )
+
+            # Check Table Name
+            if tbl_name not in self.allowed_tables:
+                sorted_tables = sorted(list(self.allowed_tables))
+                raise InvalidNamespaceError(
+                    f"Unknown or unauthorized table '{tbl_name}'.",
+                    details=f"Table '{tbl_name}' is not part of the e-commerce Lakehouse. Allowed tables: {', '.join(sorted_tables)}."
+                )
+
     def enforce_resource_governance(self, ast: exp.Expression) -> Tuple[exp.Expression, Optional[int]]:
         """
         Enforces resource governance on the AST to prevent runaway queries
@@ -215,8 +295,8 @@ class SQLSecurityValidator:
 
     def validate(self, sql: str) -> ValidationResult:
         """
-        Validates raw SQL string against all security guardrails and enforces
-        resource governance (row limiting).
+        Validates raw SQL string against all security guardrails, schema allowlists,
+        and enforces resource governance (row limiting).
         
         Args:
             sql: Raw SQL string to validate.
@@ -227,6 +307,7 @@ class SQLSecurityValidator:
         try:
             ast = self.parse(sql)
             self.check_read_only(ast)
+            self.check_table_allowlists(ast)
             ast, applied_limit = self.enforce_resource_governance(ast)
             tables = self.extract_tables(ast)
             sanitized = ast.sql(dialect=self.dialect)
@@ -236,7 +317,7 @@ class SQLSecurityValidator:
                 tables_referenced=tables,
                 applied_limit=applied_limit,
             )
-        except (SQLSyntaxError, ForbiddenOperationError) as e:
+        except (SQLSyntaxError, ForbiddenOperationError, InvalidNamespaceError) as e:
             return ValidationResult(
                 is_valid=False,
                 error_message=str(e),
