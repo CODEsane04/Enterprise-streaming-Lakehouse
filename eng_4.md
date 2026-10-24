@@ -32,7 +32,7 @@ Phase 5: Containerization & Final Handover
 
 * [x] **Task 1.1: Set up project dependencies** ✅
   * Create the environment/requirements file with: `fastmcp`, `mcp`, `trino`, `sqlglot`, `pydantic`, `pytest`, `python-dotenv`.
-* [ ] **Task 1.2: Validate Trino Python connection**
+* [x] **Task 1.2: Validate Trino Python connection** ✅
   * Write a test script (`scripts/test_trino_connection.py`) to connect to Trino on `localhost:8089` (or `trino:8080` inside Docker) with catalog `iceberg` and schema `ecommerce`.
   * Confirm that a basic query (`SELECT count(*) FROM orders;`) returns real row counts.
 

@@ -12,7 +12,7 @@ services:
     hostname: postgres
     restart: unless-stopped
     ports:
-    - 5433:5432
+    - "${POSTGRES_EXTERNAL_PORT:-5434}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -252,6 +252,9 @@ services:
           memory: 1024M
     image: custom-flink:1.20
   flink-taskmanager:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
     container_name: flink-taskmanager
     hostname: flink-taskmanager
     restart: unless-stopped
@@ -308,6 +311,9 @@ services:
           memory: 1536M
     image: custom-flink:1.20
   flink-sql-client:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
     container_name: flink-sql-client
     hostname: flink-sql-client
     restart: unless-stopped

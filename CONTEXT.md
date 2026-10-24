@@ -215,16 +215,18 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
 
 - **Branch**: `feat/engineer-4-fastmcp-security`
 - **Master Plan**: Defined in `eng_4.md` (5 phases).
-- **Phase 1: Environment & Trino Connectivity**:
+- **Phase 1: Environment & Trino Connectivity (COMPLETE ✅)**:
   - `requirements.txt` created with pinned versions (`fastmcp`, `mcp`, `trino`, `sqlglot`, `pydantic`, `pytest`, `python-dotenv`) ✅
   - Python 3.12 virtual environment (`.venv`) initialized and all dependencies installed and validated ✅
+  - Trino connectivity validation script implemented (`scripts/test_trino_connection.py`) and verified end-to-end against live Trino v484 coordinator on port 8089 ✅
+  - Iceberg catalog (`iceberg`), namespace (`ecommerce`), and tables (`orders`, `order_items`, `order_payments`) successfully discovered and queried via Python ✅
 
 ---
 
 ## KNOWN ISSUES / GOTCHAS
 
 1. **Host Port Mappings**:
-   - PostgreSQL is on host port `5433` (internal 5432).
+   - PostgreSQL is on host port `5434` (internal 5432).
    - Redpanda Console is on host port `8088` (internal 8080).
    - Flink Dashboard is on host port `8081`.
    - Trino is on host port `8089` (internal 8080).

@@ -22,7 +22,7 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 
 # ── Config ────────────────────────────────────────────────────
-DB_URL    = os.getenv("DB_URL", "postgresql+psycopg2://postgres:postgres@localhost:5433/olist_ecommerce")
+DB_URL    = os.getenv("DB_URL", f"postgresql+psycopg2://postgres:postgres@localhost:{os.getenv('POSTGRES_EXTERNAL_PORT', '5434')}/olist_ecommerce")
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "olist")
 DATA_DIR  = os.getenv("DATA_DIR", r"d:\DE project\data\olist" if os.path.exists(r"d:\DE project\data\olist") else DEFAULT_DATA_DIR)
 DELAY     = float(os.getenv("MUTATOR_DELAY", "2.0"))   # seconds between status transitions
