@@ -220,7 +220,7 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Python 3.12 virtual environment (`.venv`) initialized and all dependencies installed and validated ✅
   - Trino connectivity validation script implemented (`scripts/test_trino_connection.py`) and verified end-to-end against live Trino v484 coordinator on port 8089 ✅
   - Iceberg catalog (`iceberg`), namespace (`ecommerce`), and tables (`orders`, `order_items`, `order_payments`) successfully discovered and queried via Python ✅
-- **Phase 2: Deterministic SQL Security Guardrails (IN PROGRESS)**:
+- **Phase 2: Deterministic SQL Security Guardrails (COMPLETE ✅)**:
   - `src/security/exceptions.py` implemented with custom exception hierarchy (`SQLSecurityError`, `SQLSyntaxError`, `ForbiddenOperationError`, etc.) ✅
   - `src/security/validator.py` created with `SQLSecurityValidator` and `ValidationResult` Pydantic models ✅
   - Implemented AST parsing using `sqlglot.parse_one(sql, read="trino")` with multi-statement injection protection and table identifier extraction ✅
@@ -228,6 +228,7 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Implemented resource governance and row limiting via AST manipulation (`enforce_resource_governance`), injecting default limits (`LIMIT 100`) and clamping runaway queries (`MAX_LIMIT 1000`) to protect memory ✅
   - Authored `llm_orchestration_notes.md` detailing analytical push-down aggregations vs. raw batched extractions and agent pre-planning directives ✅
   - Implemented namespace and table allowlisting (`check_table_allowlists`), restricting access strictly to `iceberg.ecommerce.*` and the 9 Olist tables, with dynamic CTE alias awareness and blocking unauthorized catalogs/tables (`system`, `postgres`, etc.) ✅
+  - Built comprehensive automated security test suite (`tests/test_security.py`) covering 43 unit tests across happy paths, injection attacks, mutations, allowlists, and edge cases (100% pass rate) ✅
 
 ---
 
