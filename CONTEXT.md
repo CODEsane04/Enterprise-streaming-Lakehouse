@@ -229,6 +229,9 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Authored `llm_orchestration_notes.md` detailing analytical push-down aggregations vs. raw batched extractions and agent pre-planning directives ✅
   - Implemented namespace and table allowlisting (`check_table_allowlists`), restricting access strictly to `iceberg.ecommerce.*` and the 9 Olist tables, with dynamic CTE alias awareness and blocking unauthorized catalogs/tables (`system`, `postgres`, etc.) ✅
   - Built comprehensive automated security test suite (`tests/test_security.py`) covering 43 unit tests across happy paths, injection attacks, mutations, allowlists, and edge cases (100% pass rate) ✅
+- **Phase 3: FastMCP Server Implementation (IN PROGRESS)**:
+  - Created `src/mcp` package with `config.py` (Pydantic settings) and `trino_client.py` (database client layer) ✅
+  - Initialized `Lakehouse-Analytics-Server` FastMCP instance in `src/mcp/server.py` wired to `SQLSecurityValidator` and `TrinoClient` ✅
 
 ---
 
