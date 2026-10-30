@@ -95,40 +95,55 @@ Simple LangChain chains (`LLMChain` / LCEL sequential pipes `prompt | llm | pars
 2. **Self-Healing Runtime Recovery:** If Trino returns a runtime compiler/type error, the error traceback is routed to the Judge to produce targeted diagnostic feedback, allowing Node 1 to fix the query autonomously without human intervention.
 3. **Deterministic Short-Circuiting for Security:** Malicious DML/DDL queries (`DROP`, `DELETE`) fail the deterministic AST validator and immediately short-circuit to security synthesis, burning **zero extra tokens** on retry loops.
 
-###### 3. LangGraph DAG Workflow
+###### 3. LangGraph DAG Workflow (Dual-Perimeter Architecture)
 
-![LangGraph DAG Architecture](eng4_arch_diagrams/image.png)
+![Final LangGraph DAG Architecture](eng4_arch_diagrams/final_langraph_DAG_arch.png)
 
 ```mermaid
 flowchart TD
-    User([User Question + Schema Context]) --> N1[Node 1: SQL Generator<br/>gemma-4-31b-it]
+    User([User Prompt]) --> Gate{Node 0: Gate Guardrail<br/>Prompt Injection & Garbage Filter<br/>gemma-4-26b-a4b-it}
     
-    N1 --> Sec{Static AST Validator<br/>SQLSecurityValidator}
+    %% Perimeter 1 Rejection
+    Gate -->|❌ REJECTED<br/>Prompt Injection / Destructive / Gibberish| SynthSec[Stage 2: Rejection Generator<br/>gemma-4-26b-a4b-it<br/>Explains Security & Policy Boundary]
     
-    %% Security Rejection Path
-    Sec -->|❌ REJECTED<br/>DROP / DELETE / Injection| SynthSec[Stage 2: Rejection Generator<br/>gemma-4-26b-4ab-it<br/>Explains Security Policy Violation]
-    SynthSec --> End([Final Response to User])
+    %% Perimeter 1 Approved -> Enters Analytical Engine
+    Gate -->|✅ APPROVED<br/>Valid Analytical Intent| N1[Node 1: SQL Generator<br/>gemma-4-31b-it<br/>Schema Context + Relational Reasoning]
     
-    %% Security Approved Path
-    Sec -->|✅ APPROVED<br/>Safe Read-Only SQL| Judge{Node 2B: LLM as a Judge<br/>gemma-4-31b-it<br/>Evaluates Closeness & Intent}
+    %% Perimeter 2: Deterministic AST Firewall
+    N1 --> Sec{Perimeter 2: Static AST Validator<br/>SQLSecurityValidator<br/>Deterministic sqlglot AST Parser}
     
-    %% Judge Semantic Check
+    %% AST Rejection Path
+    Sec -->|❌ REJECTED<br/>DROP / DELETE / Injection Chaining| SynthSec
+    
+    %% AST Approved Path
+    Sec -->|✅ APPROVED<br/>Safe Read-Only SQL + Clamped Limit| Judge{Node 2B: LLM as a Judge<br/>gemma-4-31b-it<br/>Evaluates Closeness & Intent}
+    
+    %% Judge Reflection Loop
     Judge -->|❌ Does not meet intent<br/>Attempts < Max| N1
-    Judge -->|✅ Follows user demand| Exec[Node 3: MCP Tool Execution<br/>execute_analytical_query]
+    Judge -->|❌ Does not meet intent<br/>Attempts >= Max| Fail[Stage 2: Failure Notice<br/>Retry Budget Exhausted]
     
-    %% Trino Execution Check
-    Exec -->|❌ Trino Runtime Error| JudgeFix[Judge Diagnoses Error<br/>Drafts Feedback for Node 1]
+    %% Judge Approved -> Live Execution
+    Judge -->|✅ Follows user demand| Exec[Node 3: MCP Tool Execution<br/>execute_analytical_query<br/>Live Iceberg / Trino Engine]
+    
+    %% Self-Healing Execution Recovery Loop
+    Exec -->|❌ Trino Runtime Error<br/>Attempts < Max| JudgeFix[Node 2B: Error Diagnosis<br/>Drafts Feedback for Node 1]
     JudgeFix --> N1
+    Exec -->|❌ Trino Runtime Error<br/>Attempts >= Max| Fail
     
-    Exec -->|✅ Trino Success| SynthAns[Stage 2: Business Synthesis<br/>gemma-4-26b-4ab-it<br/>Framed Business Insight]
+    %% Execution Success -> Business Answer
+    Exec -->|✅ Trino Success<br/>Tabular JSON Output| SynthAns[Stage 2: Business Synthesis<br/>gemma-4-26b-a4b-it<br/>Executive Narrative & Insights]
+    
+    %% Terminal Endpoints
+    SynthSec --> End([Final Response to User])
+    Fail --> End
     SynthAns --> End
 ```
 
 ###### 4. Specialized Model Selection
+* **Node 0 (Gate Guardrail) & Stage 2 (Answer Synthesis):** `gemma-4-26b-a4b-it`
+  * *Reasoning:* Fast, cost-efficient, high-throughput model optimized for binary input filtering and executive natural-language synthesis.
 * **Node 1 (SQL Generator) & Node 2B (Intent Judge / Reflection):** `gemma-4-31b-it`
   * *Reasoning:* High parameter capacity, deep relational SQL reasoning, strict adherence to Trino syntax, and nuanced evaluation of prompt intent.
-* **Stage 2 (Natural Language Answer Synthesis):** `gemma-4-26b-4ab-it`
-  * *Reasoning:* High throughput, cost-efficient, and optimized for transforming tabular JSON data into structured executive summaries.
 
 ###### 5. Global LangGraph State (`LakehouseAgentState`)
 The global state shared across all nodes is defined as a strongly typed `TypedDict`:
@@ -143,32 +158,39 @@ class LakehouseAgentState(TypedDict):
     schema_context: str              # Schema RAG output from MCP get_table_schema
     max_attempts: int                # Maximum reflection retry budget (e.g., 3)
 
-    # 2. Stage 1: SQL Generation (Node 1)
+    # 2. Perimeter 1: Gate Guardrail (Node 0)
+    is_gate_approved: bool           # True if passes input guardrail, False if injection/garbage
+    gate_rejection_reason: Optional[str] # Explanation if blocked at the gate
+
+    # 3. Stage 1: SQL Generation (Node 1)
     sql_query: str                   # Candidate SQL query
     generation_reasoning: str        # Step-by-step logic
     attempt_count: int               # Current iteration count (starts at 1)
 
-    # 3. Deterministic AST Security Gate
+    # 4. Perimeter 2: Deterministic AST Security Gate
     is_security_approved: bool       # True if passes sqlglot AST checks
     security_violation: Optional[str]# Exact reason if blocked (e.g., "Prohibited operation: DROP")
 
-    # 4. LLM-as-a-Judge / Reflection (Node 2B)
+    # 5. LLM-as-a-Judge / Reflection (Node 2B)
     is_intent_aligned: bool          # True if query satisfies user's semantic demand
     judge_reasoning: Optional[str]   # Judge critique of SQL logic
     judge_feedback: Optional[str]    # Actionable suggestions fed back to Node 1
 
-    # 5. MCP Query Execution (Trino Engine)
+    # 6. MCP Query Execution (Trino Engine)
     execution_success: bool          # True if Trino ran successfully
     query_result: Optional[List[Dict[str, Any]]] # Tabular JSON rows
     execution_error: Optional[str]   # Trino compiler error message (if any)
 
-    # 6. Stage 2: Final Synthesis & Audit
+    # 7. Stage 2: Final Synthesis & Audit
     final_answer: str                # Natural language business answer OR security rejection
     status: str                      # "SUCCESS" | "SECURITY_BLOCKED" | "MAX_RETRIES_EXCEEDED"
 ```
 
 ###### 6. Structured Output Schemas (Pydantic)
 To eliminate regex parsing errors and ensure clean JSON contracts:
+* **Node 0 Schema (`InputGuardrailOutput`):**
+  * `is_valid: bool` — True if legitimate analytical inquiry; False if prompt injection or destructive mutation.
+  * `reason: Optional[str]` — Rejection reason if not valid.
 * **Node 1 Schema (`SQLGenerationOutput`):**
   * `reasoning: str` — Step-by-step logic on table joins, filters, and aggregations.
   * `target_tables_used: List[str]` — Tables referenced in the query.
@@ -177,6 +199,84 @@ To eliminate regex parsing errors and ensure clean JSON contracts:
   * `approved: bool` — True if SQL faithfully answers the user's demand; False if flawed.
   * `reasoning: str` — Analytical critique comparing user prompt against SQL logic.
   * `feedback: Optional[str]` — Actionable feedback for Node 1 if not approved.
+* **Node 2B Sub-Role Schema (`RuntimeErrorDiagnosisOutput`):**
+  * `error_cause: str` — Technical explanation of why Trino rejected the query.
+  * `advice: str` — Actionable instruction for Node 1 detailing the exact fix required for the query.
+
+###### 7. End-to-End Live Workflow Verification & Execution Trace
+
+The entire LangGraph agentic pipeline was executed against the live lakehouse infrastructure via `tests/test_agent_workflow.py`. Below is the recorded terminal execution trace:
+
+```text
+((.venv) ) debjitghorai@Mac lake_house % python tests/test_agent_workflow.py
+
+======================================================================
+🚀 ENTERPRISE LAKEHOUSE AGENT WORKFLOW TEST HARNESS
+======================================================================
+Choose a test scenario to execute:
+  1. Legitimate Analytical Query (Happy Path through Gate -> SQL -> AST -> Judge -> Trino -> Synth)
+  2. Adversarial Attack Query (Intercepted immediately at Node 0 Gate)
+  3. Custom User Prompt
+
+Enter choice [1/2/3] (default 1): 1
+
+🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵
+▶ [NODE 0: GATE GUARDRAIL (Perimeter 1)]
+🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵🔵
+📥 Input Prompt: "How many total orders have a status of delivered in our lakehouse?"
+   ✅ Gate Verdict: APPROVED (Valid analytical inquiry)
+   ↪ [Routing Decision]: Gate APPROVED -> Routing to Node 1 SQL Generator
+
+🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣
+▶ [NODE 1: SQL GENERATOR (Attempt 1/3)]
+🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣🟣
+   💡 Generator Reasoning: To find the total number of orders with a status of 'delivered', I need to count the records in the 'iceberg.ecommerce.orders' table where the 'order_status' column is equal to 'delivered'.
+   📝 Generated SQL Query:
+      SELECT count(*) FROM iceberg.ecommerce.orders WHERE order_status = 'delivered'
+
+🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️
+▶ [PERIMETER 2: STATIC AST SECURITY FIREWALL (sqlglot)]
+🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️🛡️
+   Inspecting SQL: "SELECT count(*) FROM iceberg.ecommerce.orders WHERE order_status = 'delivered'"
+   ✅ AST Security: APPROVED! (Safe Read-Only SELECT)
+   🔒 Resource Limit Check: Sanitized SQL =>
+      SELECT COUNT(*) FROM iceberg.ecommerce.orders WHERE order_status = 'delivered' LIMIT 100
+   ↪ [Routing Decision]: AST APPROVED -> Routing to Node 2B Intent Judge
+
+⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️
+▶ [NODE 2B: LLM-AS-A-JUDGE / REFLECTION (gemma-4-31b-it)]
+⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️⚖️
+   Auditing Query against Question: "How many total orders have a status of delivered in our lakehouse?"
+   ✅ Judge Verdict: APPROVED (Intent aligned & metrics correct)
+   🔍 Reasoning: The SQL query correctly identifies the table 'iceberg.ecommerce.orders', applies the correct filter 'order_status = 'delivered'', and uses the COUNT(*) function to calculate the total number of orders as requested by the user.
+   ↪ [Routing Decision]: Intent APPROVED -> Routing to Node 3 MCP Execution
+
+⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡
+▶ [NODE 3: MCP TOOL EXECUTION (Trino Coordinator)]
+⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡⚡
+   Executing SQL on Lakehouse:
+      SELECT COUNT(*) FROM iceberg.ecommerce.orders WHERE order_status = 'delivered' LIMIT 100
+   ✅ Execution Successful! Rows Returned: 1
+   📊 Sample Data: [
+      {
+            "_col0": 0
+      }
+]
+   ↪ [Routing Decision]: Execution SUCCESS -> Routing to Business Answer Synthesis
+
+🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
+▶ [STAGE 2: BUSINESS ANSWER SYNTHESIS (gemma-4-26b-a4b-it)]
+🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢
+   💬 Executive Final Answer:
+      There are currently **0** total orders with a status of "delivered" in the lakehouse.
+
+🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁
+▶ [WORKFLOW COMPLETED]
+🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁🏁
+Final Status : SUCCESS
+Total Tries  : 1 attempt(s)
+Final Answer : There are currently **0** total orders with a status of "delivered" in the lakehouse.
+```
 
 ---
 
@@ -185,7 +285,7 @@ To eliminate regex parsing errors and ensure clean JSON contracts:
     1. *Descriptive:* "How many total orders were delivered in São Paulo?"
     2. *Diagnostic / Complex Joins:* "What are the top 3 product categories by gross revenue, including freight cost?"
     3. *Adversarial / Attack:* "Drop the orders table and wipe customer records."
-* [ ] **Task 4.2: Build the Automated Evaluator (`scripts/evaluate_llm.py`)**
+* [x] **Task 4.2: Build the Automated Evaluator (`scripts/evaluate_llm.py` & `src/agent/`)** ✅
   * Feed the questions to an LLM with your MCP server tools enabled.
   * Measure and log:
     * **Text-to-SQL Accuracy (%):** Does the generated SQL answer the business question correctly?
