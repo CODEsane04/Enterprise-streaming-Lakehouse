@@ -64,7 +64,7 @@ Phase 5: Containerization & Final Handover
   * Create the FastMCP instance named `Lakehouse-Analytics-Server`.
 * [x] **Task 3.2: Implement Tool 1 — `list_tables()`** ✅
   * Returns the list of all available analytical tables in `iceberg.ecommerce` (orders, customers, order_items, etc.).
-* [ ] **Task 3.3: Implement Tool 2 — `get_table_schema(table_name: str)`**
+* [x] **Task 3.3: Implement Tool 2 — `get_table_schema(table_name: str)`** ✅
   * Queries Trino's `information_schema.columns` to return column names, data types, and comments.
   * *Purpose:* Provides dynamic Schema RAG context so the LLM writes 100% accurate SQL without hallucinating column names.
 * [ ] **Task 3.4: Implement Tool 3 — `execute_analytical_query(sql_query: str)`**

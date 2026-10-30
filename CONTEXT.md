@@ -233,6 +233,7 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Created `src/mcp` package with `config.py` (Pydantic settings) and `trino_client.py` (database client layer) with dual Host/Docker awareness ✅
   - Initialized `Lakehouse-Analytics-Server` FastMCP instance in `src/mcp/server.py` wired to `SQLSecurityValidator` and `TrinoClient` ✅
   - Implemented Tool 1: `list_tables()` discovering live Iceberg tables from Trino/Polaris and enriching with semantic metadata descriptions for LLM reasoning ✅
+  - Implemented Tool 2: `get_table_schema(table_name)` delivering dynamic Schema RAG context with exact physical Trino types, primary keys, relational join hints, and column descriptions ✅
 
 ---
 

@@ -97,6 +97,7 @@ class TrinoClient:
     def get_table_schema(self, table_name: str) -> List[Dict[str, Any]]:
         """Returns column definitions and types for a specified table."""
         conn = self.get_connection()
+        clean_table = table_name.strip().strip("'\"`").lower().split(".")[-1]
         try:
             cursor = conn.cursor()
             query = f"""
@@ -104,13 +105,25 @@ class TrinoClient:
             FROM information_schema.columns
             WHERE table_catalog = '{self.catalog}'
               AND table_schema = '{self.schema}'
-              AND table_name = '{table_name.lower()}'
+              AND table_name = '{clean_table}'
             ORDER BY ordinal_position
             """
             cursor.execute(query)
+            rows = cursor.fetchall()
+            if not rows:
+                # Fallback to DESCRIBE if information_schema returned empty
+                try:
+                    cursor.execute(f"DESCRIBE {self.catalog}.{self.schema}.{clean_table}")
+                    desc_rows = cursor.fetchall()
+                    return [
+                        {"column_name": row[0], "data_type": row[1], "is_nullable": "YES"}
+                        for row in desc_rows
+                    ]
+                except Exception:
+                    return []
             return [
                 {"column_name": row[0], "data_type": row[1], "is_nullable": row[2]}
-                for row in cursor.fetchall()
+                for row in rows
             ]
         finally:
             conn.close()

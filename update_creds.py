@@ -1,7 +1,7 @@
 import re
 
-client_id = "408b1d4a5298b1aa"
-client_secret = "6a5c9c179bbac96d85596d886386867f"
+client_id = "ce13f9967b812cf5"
+client_secret = "5e60f1964fa0a76423e4ae35f598b572"
 credential_str = f"{client_id}:{client_secret}"
 
 # 0. Update .env
