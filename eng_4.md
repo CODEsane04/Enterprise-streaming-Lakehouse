@@ -72,7 +72,7 @@ Phase 5: Containerization & Final Handover
     1. Passes `sql_query` to the `sqlglot` AST Validator.
     2. If rejected $\longrightarrow$ returns a clear, actionable error message to the LLM (e.g., *"Write operations [DROP] are forbidden"*).
     3. If approved $\longrightarrow$ executes the modified safe SQL on Trino and returns tabular JSON results.
-* [ ] **Task 3.5: Test local MCP communication**
+* [x] **Task 3.5: Test local MCP communication** ✅
   * Verify the server using the MCP Inspector or standard stdio/SSE transport.
 
 ---

@@ -371,5 +371,6 @@ def get_server_info() -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print(f"🚀 Starting {settings.server_name} via standard stdio transport...")
-    mcp.run()
+    import sys
+    print(f"🚀 Starting {settings.server_name} via standard stdio transport...", file=sys.stderr)
+    mcp.run(show_banner=False)
