@@ -67,7 +67,7 @@ Phase 5: Containerization & Final Handover
 * [x] **Task 3.3: Implement Tool 2 — `get_table_schema(table_name: str)`** ✅
   * Queries Trino's `information_schema.columns` to return column names, data types, and comments.
   * *Purpose:* Provides dynamic Schema RAG context so the LLM writes 100% accurate SQL without hallucinating column names.
-* [ ] **Task 3.4: Implement Tool 3 — `execute_analytical_query(sql_query: str)`**
+* [x] **Task 3.4: Implement Tool 3 — `execute_analytical_query(sql_query: str)`** ✅
   * Integrates the pipeline:
     1. Passes `sql_query` to the `sqlglot` AST Validator.
     2. If rejected $\longrightarrow$ returns a clear, actionable error message to the LLM (e.g., *"Write operations [DROP] are forbidden"*).

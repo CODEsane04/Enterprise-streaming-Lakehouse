@@ -234,6 +234,7 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Initialized `Lakehouse-Analytics-Server` FastMCP instance in `src/mcp/server.py` wired to `SQLSecurityValidator` and `TrinoClient` ✅
   - Implemented Tool 1: `list_tables()` discovering live Iceberg tables from Trino/Polaris and enriching with semantic metadata descriptions for LLM reasoning ✅
   - Implemented Tool 2: `get_table_schema(table_name)` delivering dynamic Schema RAG context with exact physical Trino types, primary keys, relational join hints, and column descriptions ✅
+  - Implemented Tool 3: `execute_analytical_query(sql_query)` integrating the end-to-end pipeline: AST validation, mutation interception, LIMIT injection, and Trino execution with structured tabular JSON outputs ✅
 
 ---
 

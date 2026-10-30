@@ -296,6 +296,66 @@ def get_table_schema(table_name: str) -> Dict[str, Any]:
         }
 
 
+@mcp.tool()
+def execute_analytical_query(sql_query: str) -> Dict[str, Any]:
+    """
+    Safely execute a read-only analytical SQL query against the Lakehouse (catalog: iceberg, schema: ecommerce).
+
+    The query is deterministically parsed into an Abstract Syntax Tree (AST) using sqlglot and validated
+    against security guardrails before execution:
+    - Only read-only queries (SELECT, EXPLAIN) are permitted.
+    - Write operations (DROP, DELETE, UPDATE, INSERT, ALTER, TRUNCATE, CREATE) are strictly blocked.
+    - Semicolon-separated multi-statement injections are intercepted.
+    - Queries without a LIMIT clause automatically receive a default limit (100) to protect memory.
+    - Excessive LIMIT clauses (> 1000) are clamped down to 1000.
+    - Only tables within the 'iceberg.ecommerce' namespace are accessible.
+
+    Args:
+        sql_query: The SQL query to validate and execute.
+    """
+    # Step 1: Deterministic SQL AST Security & Policy Validation
+    validation = security_validator.validate(sql_query)
+
+    if not validation.is_valid:
+        return {
+            "success": False,
+            "error_type": "SecurityGuardrailViolation",
+            "error": validation.error_message,
+            "actionable_feedback": "Your query was blocked by Lakehouse deterministic AST security policies. Only read-only SELECT queries on allowed tables are permitted.",
+            "raw_query": sql_query,
+            "executed_query": None,
+            "data": [],
+        }
+
+    # Step 2: Execute validated and sanitized query on Trino engine
+    db_result = trino_client.execute_query(validation.sanitized_sql)
+
+    if not db_result["success"]:
+        return {
+            "success": False,
+            "error_type": "TrinoExecutionError",
+            "error": db_result.get("error"),
+            "raw_query": sql_query,
+            "executed_query": validation.sanitized_sql,
+            "tables_referenced": validation.tables_referenced,
+            "applied_limit": validation.applied_limit,
+            "execution_time_ms": db_result.get("execution_time_ms", 0),
+            "data": [],
+        }
+
+    return {
+        "success": True,
+        "raw_query": sql_query,
+        "executed_query": validation.sanitized_sql,
+        "tables_referenced": validation.tables_referenced,
+        "applied_limit": validation.applied_limit,
+        "row_count": db_result["row_count"],
+        "columns": db_result["columns"],
+        "data": db_result["data"],
+        "execution_time_ms": db_result["execution_time_ms"],
+    }
+
+
 def get_server_info() -> Dict[str, Any]:
     """Returns server identity, status, and connection parameters."""
     return {
