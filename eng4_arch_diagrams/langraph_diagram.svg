@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1018.1064999999999 703.401" width="1018.1064999999999" height="703.401" style="--bg:#18181B;--fg:#F4F4F5;--line:#71717A;--muted:#A1A1AA;--surface:#27272A;--border:#3F3F46;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 85%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="5" refX="7" refY="2.5" orient="auto">
+    <polygon points="0 0, 8 2.5, 0 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="5" refX="1" refY="2.5" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.5, 8 5" fill="var(--_arrow)" stroke="var(--_arrow)" stroke-width="0.75" stroke-linejoin="round" />
+  </marker>
+</defs>
+<polyline class="edge" data-from="Start" data-to="N1" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="703.7695000000001,500.7009999999999 703.7695000000001,512.701 505.3481,512.701 505.3481,536.701" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N1" data-to="N2" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="436.1053,536.701 436.1053,512.701 406.41600000000005,512.701 406.41600000000005,430.101 387.3081,430.101 387.3081,240.07089999999994" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N2" data-to="SecBlock" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Adversarial / Malicious DML" points="298.38770000000005,195.61069999999995 298.38770000000005,430.101 131.37,430.101 131.37,536.701" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N2" data-to="N1" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Semantic Flaw / Syntax Error
+Tries &lt; Max" points="342.84790000000004,240.07089999999994 342.84790000000004,430.101 323.74,430.101 323.74,512.701 401.4839,512.701 401.4839,536.701" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N2" data-to="N3" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Query Approved" points="431.7683,195.61069999999998 431.7683,274.30099999999993 687.8335,274.30099999999993 687.8335,354.601" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N3" data-to="N1" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Execution Failure / Runtime Error" points="649.9668333333334,408.40099999999995 649.9668333333334,444.40099999999995 500.41600000000005,444.40099999999995 500.41600000000005,512.701 470.7267,512.701 470.7267,536.701" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N3" data-to="N4" data-style="solid" data-arrow-start="false" data-arrow-end="true" data-label="Execution Success" points="725.7001666666667,408.40099999999995 725.7001666666667,451.80099999999993 875.251,451.80099999999993 875.251,536.701" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="N4" data-to="End" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="875.2509999999999,590.501 875.2509999999999,608.501 503.3105,608.501 503.3105,626.501" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<polyline class="edge" data-from="SecBlock" data-to="End" data-style="solid" data-arrow-start="false" data-arrow-end="true" points="131.37,590.501 131.37,608.501 503.3105,608.501 503.3105,626.501" fill="none" stroke="var(--_line)" stroke-width="1" marker-end="url(#arrowhead)" />
+<g class="edge-label" data-from="N2" data-to="SecBlock" data-label="Adversarial / Malicious DML">
+  <rect x="55.36999999999999" y="475.40099999999995" width="151.89400000000003" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="131.317" y="490.55099999999993" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Adversarial / Malicious DML</text>
+</g>
+<g class="edge-label" data-from="N2" data-to="N1" data-label="Semantic Flaw / Syntax Error
+Tries &lt; Max">
+  <rect x="246.74" y="437.101" width="153.67600000000004" height="44.6" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="323.57800000000003" y="459.401" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)"><tspan x="323.57800000000003" dy="-3.3000000000000007">Semantic Flaw / Syntax Error</tspan><tspan x="323.57800000000003" dy="14.3">Tries &lt; Max</tspan></text>
+</g>
+<g class="edge-label" data-from="N2" data-to="N3" data-label="Query Approved">
+  <rect x="639.3335" y="281.30099999999993" width="96.65200000000002" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="687.6595" y="296.4509999999999" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Query Approved</text>
+</g>
+<g class="edge-label" data-from="N3" data-to="N1" data-label="Execution Failure / Runtime Error">
+  <rect x="413.41600000000005" y="451.40099999999995" width="173.872" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="500.3520000000001" y="466.55099999999993" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Execution Failure / Runtime Error</text>
+</g>
+<g class="edge-label" data-from="N3" data-to="N4" data-label="Execution Success">
+  <rect x="820.251" y="475.40099999999995" width="109.72000000000001" height="30.3" rx="2" ry="2" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="1" />
+  <text x="875.111" y="490.55099999999993" text-anchor="middle" font-size="11" font-weight="400" fill="var(--_text-sec)" dy="3.8499999999999996">Execution Success</text>
+</g>
+<g class="node" data-id="Start" data-label="User Question + Schema" data-shape="stadium">
+  <rect x="611.288" y="463.80099999999993" width="184.96299999999997" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="703.7695" y="482.2509999999999" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">User Question + Schema</text>
+</g>
+<g class="node" data-id="N1" data-label="Node 1: SQL Generator
+gemma-4-31b-it" data-shape="rectangle">
+  <rect x="366.8625" y="536.701" width="173.10699999999997" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="453.416" y="563.601" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="453.416" dy="-3.9000000000000012">Node 1: SQL Generator</tspan><tspan x="453.416" dy="16.900000000000002">gemma-4-31b-it</tspan></text>
+</g>
+<g class="node" data-id="N2" data-label="Node 2: Evaluator &amp; Judge
+AST Gate + LLM Reflection" data-shape="diamond">
+  <polygon points="365.07800000000003,39.999999999999986 476.2285,151.15049999999997 365.07800000000003,262.30099999999993 253.92750000000007,151.15049999999997" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="365.07800000000003" y="151.15049999999997" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="365.07800000000003" dy="-3.9000000000000012">Node 2: Evaluator &amp; Judge</tspan><tspan x="365.07800000000003" dy="16.900000000000002">AST Gate + LLM Reflection</tspan></text>
+</g>
+<g class="node" data-id="SecBlock" data-label="Security Rejection Node
+Audit logged &amp; blocked" data-shape="rectangle">
+  <rect x="40" y="536.701" width="182.74" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="131.37" y="563.601" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="131.37" dy="-3.9000000000000012">Security Rejection Node</tspan><tspan x="131.37" dy="16.900000000000002">Audit logged &amp; blocked</tspan></text>
+</g>
+<g class="node" data-id="N3" data-label="Node 3: Trino Execution
+MCP execute_analytical_query" data-shape="rectangle">
+  <rect x="574.2335" y="354.601" width="227.19999999999993" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="687.8335" y="381.501" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="687.8335" dy="-3.9000000000000012">Node 3: Trino Execution</tspan><tspan x="687.8335" dy="16.900000000000002">MCP execute_analytical_query</tspan></text>
+</g>
+<g class="node" data-id="N4" data-label="Node 4: Business Synthesis
+Natural Language Answer" data-shape="rectangle">
+  <rect x="772.3954999999999" y="536.701" width="205.71099999999996" height="53.800000000000004" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="875.2509999999999" y="563.601" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)"><tspan x="875.2509999999999" dy="-3.9000000000000012">Node 4: Business Synthesis</tspan><tspan x="875.2509999999999" dy="16.900000000000002">Natural Language Answer</tspan></text>
+</g>
+<g class="node" data-id="End" data-label="Final Response to User" data-shape="stadium">
+  <rect x="413.793" y="626.501" width="179.035" height="36.900000000000006" rx="18.450000000000003" ry="18.450000000000003" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+  <text x="503.3105" y="644.951" text-anchor="middle" font-size="13" font-weight="500" fill="var(--_text)" dy="4.55">Final Response to User</text>
+</g>
+</svg>

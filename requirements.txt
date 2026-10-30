@@ -20,3 +20,8 @@ python-dotenv>=1.0.0
 # Testing & Verification
 pytest>=8.0.0
 
+# LangGraph Agentic Orchestration & Google GenAI (Phase 4)
+langchain>=0.3.0
+langgraph>=0.2.0
+langchain-google-genai>=2.0.0
+

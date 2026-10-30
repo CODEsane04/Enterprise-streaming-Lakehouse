@@ -236,6 +236,10 @@ Engineer 4 picks up from the Trino query engine and Apache Polaris catalog:
   - Implemented Tool 2: `get_table_schema(table_name)` delivering dynamic Schema RAG context with exact physical Trino types, primary keys, relational join hints, and column descriptions ✅
   - Implemented Tool 3: `execute_analytical_query(sql_query)` integrating the end-to-end pipeline: AST validation, mutation interception, LIMIT injection, and Trino execution with structured tabular JSON outputs ✅
   - Built MCP client test harness (`scripts/test_mcp_client.py`) and pytest suite (`tests/test_mcp.py`) verifying true stdio JSON-RPC handshake, tool discovery, and remote tool execution (100% pass rate) ✅
+- **Phase 4: LLM Benchmarking & Evaluation Framework (IN PROGRESS)**:
+  - Created dedicated `benchmarks/` package with `benchmark_suite.json` containing 20 curated test scenarios across Descriptive Analytics (5), Diagnostic & Complex Joins (6), and Adversarial Security Attacks (9) ✅
+  - Implemented Pydantic-validated suite loader in `benchmarks/loader.py` with criteria filtering and statistics ✅
+  - Verified benchmark suite integrity and golden SQL metadata via verification runner (100% pass) ✅
 
 ---
 

@@ -80,7 +80,107 @@ Phase 5: Containerization & Final Handover
 #### Phase 4: LLM Benchmarking & Evaluation Framework
 *Prove that your system works reliably across complex questions and resists security attacks.*
 
-* [ ] **Task 4.1: Construct the Benchmark Question Suite (`benchmarks/benchmark_suite.json`)**
+##### Phase 4 Architecture & Design Decisions
+
+###### 1. Two-Stage Chained Architecture vs. Naive Chains
+Rather than using a single monolithic prompt or a fragile unconstrained ReAct loop, the Lakehouse AI layer is architected as an explicit **2-Stage Agentic Pipeline**:
+* **Stage 1 (Analytical Query Modeling & Validation):** Dedicated to reasoning about table relationships, generating valid Trino dialect SQL with dynamic schema context, passing deterministic AST security gates, and passing LLM semantic reflection.
+* **Stage 2 (Natural Language Business Synthesis):** Takes the verified tabular JSON output from Trino and synthesizes an executive, natural-language business summary answering the user's strategic question. If an adversarial prompt was intercepted, it explains the security policy violation cleanly.
+
+###### 2. Why LangGraph DAG Beats Simple LangChain Sequential Chains
+Simple LangChain chains (`LLMChain` / LCEL sequential pipes `prompt | llm | parser`) are **strictly acyclic and single-pass**. If the LLM generates a SQL query with a slight syntax error, an ambiguous join, or misses a business metric, a sequential chain crashes or hallucinates.
+
+**LangGraph provides three critical enterprise advantages:**
+1. **Agentic Reflection (Self-Correction Loop):** The graph enables a cyclic feedback loop between the Generator (**Node 1**) and the Judge (**Node 2B**). If Node 2B detects a semantic flaw (e.g., omitted `freight_value` in revenue), it provides targeted critique and routes back to Node 1 to self-refine.
+2. **Self-Healing Runtime Recovery:** If Trino returns a runtime compiler/type error, the error traceback is routed to the Judge to produce targeted diagnostic feedback, allowing Node 1 to fix the query autonomously without human intervention.
+3. **Deterministic Short-Circuiting for Security:** Malicious DML/DDL queries (`DROP`, `DELETE`) fail the deterministic AST validator and immediately short-circuit to security synthesis, burning **zero extra tokens** on retry loops.
+
+###### 3. LangGraph DAG Workflow
+
+![LangGraph DAG Architecture](eng4_arch_diagrams/image.png)
+
+```mermaid
+flowchart TD
+    User([User Question + Schema Context]) --> N1[Node 1: SQL Generator<br/>gemma-4-31b-it]
+    
+    N1 --> Sec{Static AST Validator<br/>SQLSecurityValidator}
+    
+    %% Security Rejection Path
+    Sec -->|❌ REJECTED<br/>DROP / DELETE / Injection| SynthSec[Stage 2: Rejection Generator<br/>gemma-4-26b-4ab-it<br/>Explains Security Policy Violation]
+    SynthSec --> End([Final Response to User])
+    
+    %% Security Approved Path
+    Sec -->|✅ APPROVED<br/>Safe Read-Only SQL| Judge{Node 2B: LLM as a Judge<br/>gemma-4-31b-it<br/>Evaluates Closeness & Intent}
+    
+    %% Judge Semantic Check
+    Judge -->|❌ Does not meet intent<br/>Attempts < Max| N1
+    Judge -->|✅ Follows user demand| Exec[Node 3: MCP Tool Execution<br/>execute_analytical_query]
+    
+    %% Trino Execution Check
+    Exec -->|❌ Trino Runtime Error| JudgeFix[Judge Diagnoses Error<br/>Drafts Feedback for Node 1]
+    JudgeFix --> N1
+    
+    Exec -->|✅ Trino Success| SynthAns[Stage 2: Business Synthesis<br/>gemma-4-26b-4ab-it<br/>Framed Business Insight]
+    SynthAns --> End
+```
+
+###### 4. Specialized Model Selection
+* **Node 1 (SQL Generator) & Node 2B (Intent Judge / Reflection):** `gemma-4-31b-it`
+  * *Reasoning:* High parameter capacity, deep relational SQL reasoning, strict adherence to Trino syntax, and nuanced evaluation of prompt intent.
+* **Stage 2 (Natural Language Answer Synthesis):** `gemma-4-26b-4ab-it`
+  * *Reasoning:* High throughput, cost-efficient, and optimized for transforming tabular JSON data into structured executive summaries.
+
+###### 5. Global LangGraph State (`LakehouseAgentState`)
+The global state shared across all nodes is defined as a strongly typed `TypedDict`:
+
+```python
+from typing import TypedDict, List, Dict, Any, Optional
+
+class LakehouseAgentState(TypedDict):
+    # 1. Input Context (Grounding)
+    question: str                    # Original user prompt
+    target_tables: List[str]         # Candidate tables
+    schema_context: str              # Schema RAG output from MCP get_table_schema
+    max_attempts: int                # Maximum reflection retry budget (e.g., 3)
+
+    # 2. Stage 1: SQL Generation (Node 1)
+    sql_query: str                   # Candidate SQL query
+    generation_reasoning: str        # Step-by-step logic
+    attempt_count: int               # Current iteration count (starts at 1)
+
+    # 3. Deterministic AST Security Gate
+    is_security_approved: bool       # True if passes sqlglot AST checks
+    security_violation: Optional[str]# Exact reason if blocked (e.g., "Prohibited operation: DROP")
+
+    # 4. LLM-as-a-Judge / Reflection (Node 2B)
+    is_intent_aligned: bool          # True if query satisfies user's semantic demand
+    judge_reasoning: Optional[str]   # Judge critique of SQL logic
+    judge_feedback: Optional[str]    # Actionable suggestions fed back to Node 1
+
+    # 5. MCP Query Execution (Trino Engine)
+    execution_success: bool          # True if Trino ran successfully
+    query_result: Optional[List[Dict[str, Any]]] # Tabular JSON rows
+    execution_error: Optional[str]   # Trino compiler error message (if any)
+
+    # 6. Stage 2: Final Synthesis & Audit
+    final_answer: str                # Natural language business answer OR security rejection
+    status: str                      # "SUCCESS" | "SECURITY_BLOCKED" | "MAX_RETRIES_EXCEEDED"
+```
+
+###### 6. Structured Output Schemas (Pydantic)
+To eliminate regex parsing errors and ensure clean JSON contracts:
+* **Node 1 Schema (`SQLGenerationOutput`):**
+  * `reasoning: str` — Step-by-step logic on table joins, filters, and aggregations.
+  * `target_tables_used: List[str]` — Tables referenced in the query.
+  * `sql_query: str` — Clean Trino/Presto SQL targeting `iceberg.ecommerce`.
+* **Node 2B Schema (`JudgeEvaluationOutput`):**
+  * `approved: bool` — True if SQL faithfully answers the user's demand; False if flawed.
+  * `reasoning: str` — Analytical critique comparing user prompt against SQL logic.
+  * `feedback: Optional[str]` — Actionable feedback for Node 1 if not approved.
+
+---
+
+* [x] **Task 4.1: Construct the Benchmark Question Suite (`benchmarks/benchmark_suite.json`)** ✅
   * Create test cases covering 3 tiers:
     1. *Descriptive:* "How many total orders were delivered in São Paulo?"
     2. *Diagnostic / Complex Joins:* "What are the top 3 product categories by gross revenue, including freight cost?"
