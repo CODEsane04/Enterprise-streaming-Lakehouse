@@ -39,6 +39,10 @@ class MCPSettings(BaseSettings):
     trino_user: str = Field(default_factory=lambda: os.getenv("TRINO_USER", "trino"))
     trino_catalog: str = Field(default_factory=lambda: os.getenv("TRINO_CATALOG", "iceberg"))
     trino_schema: str = Field(default_factory=lambda: os.getenv("TRINO_SCHEMA", "ecommerce"))
+    trino_request_timeout: float = Field(
+        default_factory=lambda: float(os.getenv("TRINO_REQUEST_TIMEOUT", "300.0")),
+        description="Trino HTTP query execution timeout in seconds (default 5 minutes)",
+    )
 
     # Security Settings
     default_limit: int = Field(default=100, description="Default row limit injected on unconstrained queries")

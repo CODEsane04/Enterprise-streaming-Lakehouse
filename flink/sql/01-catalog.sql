@@ -31,7 +31,9 @@ CREATE CATALOG iceberg_catalog WITH (
   'hadoop.fs.s3a.endpoint' = 'http://minio:9000',
   'hadoop.fs.s3a.path.style.access' = 'true',
   'hadoop.fs.s3a.access.key' = 'minioadmin',
-  'hadoop.fs.s3a.secret.key' = 'minioadmin123'
+  'hadoop.fs.s3a.secret.key' = 'minioadmin123',
+  'hadoop.fs.s3.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem',
+  'hadoop.fs.s3a.impl' = 'org.apache.hadoop.fs.s3a.S3AFileSystem'
 );
 
 -- ── 3. Create E-Commerce Database in Catalog ────────────────

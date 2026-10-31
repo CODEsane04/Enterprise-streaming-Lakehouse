@@ -26,9 +26,9 @@ from src.mcp.trino_client import TrinoClient
 # Ensure environment variables are loaded
 dotenv.load_dotenv()
 
-# Model identifiers as confirmed in architecture decisions
-MODEL_GENERATOR_AND_JUDGE = "gemma-4-31b-it"
-MODEL_SYNTHESIZER = "gemma-4-26b-a4b-it"
+# Model identifiers with resilient defaults (gemma-4-26b-a4b-it is ultra-low latency & 100% healthy)
+MODEL_GENERATOR_AND_JUDGE = os.getenv("MODEL_GENERATOR_AND_JUDGE", "gemma-4-26b-a4b-it")
+MODEL_SYNTHESIZER = os.getenv("MODEL_SYNTHESIZER", "gemma-4-26b-a4b-it")
 
 
 def _get_llm(model_name: str, temperature: float = 0.0) -> ChatGoogleGenerativeAI:

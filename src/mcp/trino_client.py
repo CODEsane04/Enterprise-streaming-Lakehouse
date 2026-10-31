@@ -41,7 +41,7 @@ class TrinoClient:
             catalog=self.catalog,
             schema=self.schema,
             http_scheme="http",
-            request_timeout=30.0,
+            request_timeout=settings.trino_request_timeout,
         )
 
     def execute_query(self, sql: str) -> Dict[str, Any]:
@@ -75,7 +75,7 @@ class TrinoClient:
                 "execution_time_ms": elapsed_ms,
                 "data": records,
             }
-        except (TrinoConnectionError, TrinoUserError) as e:
+        except Exception as e:
             return {
                 "success": False,
                 "error": str(e),

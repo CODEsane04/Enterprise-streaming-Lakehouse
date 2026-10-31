@@ -1,0 +1,38 @@
+{
+  "description": "Model Context Protocol (MCP) Configuration for Enterprise Iceberg Lakehouse",
+  "mcpServers": {
+    "lakehouse-analytics": {
+      "command": "/Users/debjitghorai/lake_house/.venv/bin/python",
+      "args": [
+        "-m",
+        "src.mcp.server"
+      ],
+      "env": {
+        "TRINO_HOST": "localhost",
+        "TRINO_PORT": "8089",
+        "TRINO_USER": "trino",
+        "TRINO_CATALOG": "iceberg",
+        "TRINO_SCHEMA": "ecommerce"
+      }
+    },
+    "lakehouse-analytics-docker": {
+      "command": "docker",
+      "args": [
+        "exec",
+        "-i",
+        "lakehouse-ai-service",
+        "python",
+        "-m",
+        "src.mcp.server"
+      ],
+      "env": {
+        "TRINO_HOST": "trino",
+        "TRINO_PORT": "8080",
+        "TRINO_USER": "trino",
+        "TRINO_CATALOG": "iceberg",
+        "TRINO_SCHEMA": "ecommerce"
+      }
+    }
+  }
+}
+

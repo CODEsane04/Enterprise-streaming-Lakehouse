@@ -377,12 +377,13 @@ services:
     - 8181:8181
     environment:
     - POLARIS_BOOTSTRAP=true
+    - POLARIS_BOOTSTRAP_CREDENTIALS=POLARIS,ce13f9967b812cf5,5e60f1964fa0a76423e4ae35f598b572
     - AWS_REGION=us-east-1
     - AWS_DEFAULT_REGION=us-east-1
     - AWS_ACCESS_KEY_ID=minioadmin
     - AWS_SECRET_ACCESS_KEY=minioadmin123
     - POLARIS_FEATURES_SUPPORTED_STORAGE_TYPES=S3,FILE
-    - JAVA_OPTS_APPEND=-Daws.accessKeyId=minioadmin -Daws.secretAccessKey=minioadmin123 -Daws.region=us-east-1 -Daws.sts.endpoint=http://minio:9000 -Daws.s3.endpoint=http://minio:9000 -Daws.endpointUrl=http://minio:9000 -Daws.endpointUrlSts=http://minio:9000 -Daws.endpointUrlS3=http://minio:9000 -Dsoftware.amazon.awssdk.endpoints.s3=http://minio:9000 -Dsoftware.amazon.awssdk.endpoints.sts=http://minio:9000 -Daws.s3.pathStyleAccessEnabled=true -Dsoftware.amazon.awssdk.s3.pathStyleAccessEnabled=true
+    - JAVA_OPTS_APPEND=-Daws.accessKeyId=minioadmin -Daws.secretAccessKey=minioadmin123 -Daws.region=us-east-1 -Daws.sts.endpoint=http://minio:9000 -Daws.s3.endpoint=http://minio:9000 -Daws.endpointUrl=http://minio:9000 -Daws.endpointUrlSts=http://minio:9000 -Daws.endpointUrlS3=http://minio:9000 -Dsoftware.amazon.awssdk.endpoints.s3=http://minio:9000 -Dsoftware.amazon.awssdk.endpoints.sts=http://minio:9000 -Daws.s3.pathStyleAccessEnabled=true -Dsoftware.amazon.awssdk.s3.pathStyleAccessEnabled=true -Dpolaris.bootstrap.credentials=POLARIS,ce13f9967b812cf5,5e60f1964fa0a76423e4ae35f598b572
     networks:
     - lakehouse-net
     depends_on:
@@ -410,3 +411,65 @@ services:
       resources:
         limits:
           memory: 1024M
+  lakehouse-ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lakehouse-ai-service
+    hostname: lakehouse-ai-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY}
+      - TRINO_HOST=trino
+      - TRINO_PORT=8080
+      - TRINO_USER=trino
+      - TRINO_CATALOG=iceberg
+      - TRINO_SCHEMA=ecommerce
+      - DOCKER_CONTAINER=true
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-lakehouse-agentic-pipeline}
+      - LANGSMITH_ENDPOINT=${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
+      - LANGCHAIN_TRACING_V2=${LANGSMITH_TRACING:-false}
+      - LANGCHAIN_API_KEY=${LANGSMITH_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGSMITH_PROJECT:-lakehouse-agentic-pipeline}
+    volumes:
+      - ./src:/app/src
+      - ./benchmarks:/app/benchmarks
+      - ./tests:/app/tests
+      - ./frontend:/app/frontend
+    command: uvicorn src.api.app:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - lakehouse-net
+    depends_on:
+      - trino
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+  lakehouse-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: lakehouse-frontend
+    hostname: lakehouse-frontend
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://lakehouse-ai-service:8000
+    volumes:
+      - ./frontend:/app/frontend
+      - ./.streamlit:/app/.streamlit
+    networks:
+      - lakehouse-net
+    depends_on:
+      - lakehouse-ai-service
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
