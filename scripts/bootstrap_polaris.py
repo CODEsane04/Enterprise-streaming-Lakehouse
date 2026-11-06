@@ -72,5 +72,31 @@ def create_catalog():
         print(f"Failed to create catalog: {res2.text}")
         sys.exit(1)
 
+    # Create namespace ecommerce
+    ns_url = f"{POLARIS_URL}/api/catalog/v1/polaris/namespaces"
+    r_ns = requests.post(ns_url, headers=headers, json={"namespace": ["ecommerce"]})
+    if r_ns.status_code in (200, 201):
+        print("Namespace 'ecommerce' created successfully!")
+    elif r_ns.status_code == 409:
+        print("Namespace 'ecommerce' already exists.")
+    else:
+        print(f"Namespace status: {r_ns.status_code} {r_ns.text}")
+
+    # Register Iceberg tables
+    reg_url = f"{POLARIS_URL}/api/catalog/v1/polaris/namespaces/ecommerce/register"
+    tables = [
+        ("orders", f"s3://{S3_BUCKET}/warehouse/ecommerce/orders/metadata/00005-1e5875dd-5616-4035-9031-dfa3ad567927.metadata.json"),
+        ("order_payments", f"s3://{S3_BUCKET}/warehouse/ecommerce/order_payments/metadata/00005-c981b05e-cca7-4be5-b6c8-ece64a162dc4.metadata.json"),
+        ("order_items", f"s3://{S3_BUCKET}/warehouse/ecommerce/order_items/metadata/00004-5408dfed-154f-488b-a57f-e7b5282f3f0d.metadata.json")
+    ]
+    for tbl_name, meta_loc in tables:
+        r_tbl = requests.post(reg_url, headers=headers, json={"name": tbl_name, "metadata-location": meta_loc})
+        if r_tbl.status_code in (200, 201):
+            print(f"Table '{tbl_name}' registered successfully!")
+        elif r_tbl.status_code == 409:
+            print(f"Table '{tbl_name}' already registered.")
+        else:
+            print(f"Table '{tbl_name}' registration: {r_tbl.status_code} {r_tbl.text}")
+
 if __name__ == "__main__":
     create_catalog()
