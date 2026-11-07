@@ -31,8 +31,10 @@ def create_catalog():
             requests.delete(f"{POLARIS_URL}/api/catalog/v1/polaris/namespaces/ecommerce/tables/{t_name}", headers=headers)
     d1 = requests.delete(f"{POLARIS_URL}/api/catalog/v1/polaris/namespaces/ecommerce", headers=headers)
     d2 = requests.delete(f"{catalog_url}/polaris", headers=headers)
-    print("Delete namespace status:", d1.status_code, d1.text)
-    print("Delete catalog status:", d2.status_code, d2.text)
+    if d1.status_code not in (200, 204, 404):
+        print("Previous namespace cleanup status:", d1.status_code)
+    if d2.status_code not in (200, 204, 404):
+        print("Previous catalog cleanup status:", d2.status_code)
     
     catalog_payload = {
         "catalog": {
