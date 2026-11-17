@@ -152,12 +152,11 @@ Enterprise-streaming-Lakehouse/
 
 ## Team & Credits
 
-Developed as the Capstone Project for **Data Engineering (CSL4030)**, Semester I 2026.
+Developed as the course project for **Data Engineering (CSL4030)**.
 
-* **Advaith Moholkar** (B23ES1005) — *Project Lead, Redpanda Streaming & Flink Quality Gate*
-* **Debjit Ghorai** (B23ES1013) — *FastMCP Server, sqlglot AST Firewall & LangGraph Multi-Agent*
-* **Aditya Jain** (B23ES1004) — *PostgreSQL 16 Operational WAL & Debezium CDC Pipeline*
-* **Adithya Subhash** (B23ES1003) — *MinIO S3 Storage, Iceberg v2 MoR & Polaris REST Catalog*
+* **Advaith Moholkar** (B23ES1005) - *Project Lead, Redpanda Streaming & Flink Quality Gate*
+* **Debjit Ghorai** (B23ES1013) - *FastMCP Server, sqlglot AST Firewall & LangGraph Multi-Agent*
+* **Aditya Jain** (B23ES1004) - *PostgreSQL 16 Operational WAL & Debezium CDC Pipeline*
+* **Adithya Subhash** (B23ES1003) - *MinIO S3 Storage, Iceberg v2 MoR & Polaris REST Catalog*
 
-Course Instructor: **Dr. Romi Banerjee**  
-Repository: [Enterprise-streaming-Lakehouse](https://github.com/CODEsane04/Enterprise-streaming-Lakehouse)
+Course Instructor: **Dr. Romi Banerjee** | *Department of Computer Science and Engineering, IIT Jodhpur*
